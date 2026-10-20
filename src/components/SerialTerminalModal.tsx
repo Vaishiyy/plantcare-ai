@@ -20,7 +20,7 @@ export const SerialTerminalModal: React.FC<SerialTerminalModalProps> = ({ isOpen
     if (!customInput.trim()) return;
     const ok = injectManualPacket(customInput.trim());
     if (ok) {
-      setInjectResult('Packet parsed & Decision Tree executed!');
+      setInjectResult('Packet parsed & plant health evaluated!');
     } else {
       setInjectResult('Parse error: ensure payload matches JSON format.');
     }
@@ -58,14 +58,14 @@ export const SerialTerminalModal: React.FC<SerialTerminalModalProps> = ({ isOpen
 
         {/* Preset sample buttons matching the user's dataset */}
         <div className="px-3 py-2 bg-stone-900/90 border-b border-stone-800 flex items-center gap-1.5 overflow-x-auto text-[11px] font-mono">
-          <span className="text-stone-400 text-[10px] whitespace-nowrap">Model Presets:</span>
+          <span className="text-stone-400 text-[10px] whitespace-nowrap">Care Presets:</span>
           <button
             onClick={() =>
               loadPreset('{"moisture": 25.0, "temperature": 24.5, "humidity": 48.0, "light": 3400, "condition": "Suitable"}')
             }
             className="px-2 py-1 rounded bg-stone-800 hover:bg-stone-700 text-emerald-300 whitespace-nowrap"
           >
-            Aloe Suitable (2)
+            Aloe Healthy
           </button>
           <button
             onClick={() =>
@@ -73,7 +73,7 @@ export const SerialTerminalModal: React.FC<SerialTerminalModalProps> = ({ isOpen
             }
             className="px-2 py-1 rounded bg-stone-800 hover:bg-stone-700 text-emerald-300 whitespace-nowrap"
           >
-            Pothos Suitable (2)
+            Pothos Healthy
           </button>
           <button
             onClick={() =>
@@ -81,7 +81,7 @@ export const SerialTerminalModal: React.FC<SerialTerminalModalProps> = ({ isOpen
             }
             className="px-2 py-1 rounded bg-stone-800 hover:bg-stone-700 text-amber-300 whitespace-nowrap"
           >
-            Moderate (1)
+            Needs Care
           </button>
           <button
             onClick={() =>
@@ -89,7 +89,7 @@ export const SerialTerminalModal: React.FC<SerialTerminalModalProps> = ({ isOpen
             }
             className="px-2 py-1 rounded bg-stone-800 hover:bg-stone-700 text-rose-300 whitespace-nowrap"
           >
-            High Stress (0)
+            High Stress
           </button>
         </div>
 

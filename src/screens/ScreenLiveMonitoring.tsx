@@ -63,12 +63,12 @@ export const ScreenLiveMonitoring: React.FC = () => {
 
             <div>
               <h2 className="text-sm font-bold font-display text-forest-900">
-                Live Sensor Telemetry
+                Live Sensor Monitoring
               </h2>
               <div className="flex items-center gap-2 text-[11px] text-stone-500">
                 <span className="flex items-center gap-1">
                   <Clock className="w-3 h-3 text-stone-400" />
-                  Last Packet: {lastUpdatedStr}
+                  Last Updated: {lastUpdatedStr}
                 </span>
                 <span>•</span>
                 <span>Interval: {refreshInterval / 1000}s</span>
@@ -101,10 +101,10 @@ export const ScreenLiveMonitoring: React.FC = () => {
             <AlertTriangle className="w-4 h-4 text-stone-500 shrink-0 mt-0.5" />
             <div className="text-xs">
               <span className="font-bold text-stone-800 block">
-                Hardware Link Offline
+                Device Offline
               </span>
               <p className="leading-snug">
-                Showing last captured readings ({lastUpdatedStr}). Telemetry will resume automatically once STM32 Bluetooth connects.
+                Showing last captured readings ({lastUpdatedStr}). Readings will resume automatically when your device reconnects.
               </p>
             </div>
           </div>
@@ -115,9 +115,9 @@ export const ScreenLiveMonitoring: React.FC = () => {
           <div className="p-3 bg-amber-50 border border-amber-200 rounded-2xl flex items-start gap-2.5 text-amber-800">
             <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
             <div className="text-xs">
-              <span className="font-bold block">Telemetry is Stale</span>
+              <span className="font-bold block">Readings may be Stale</span>
               <p className="leading-snug">
-                No new sensor packets have been received in over 30 seconds. Verify STM32 power and Bluetooth pairing.
+                No new data received in over 30 seconds. Verify plant monitor power and Bluetooth pairing.
               </p>
             </div>
           </div>
@@ -154,7 +154,7 @@ export const ScreenLiveMonitoring: React.FC = () => {
 
           <div className="p-2.5 rounded-2xl bg-yellow-50/80 border border-yellow-100">
             <span className="text-[10px] text-yellow-700 font-semibold block uppercase">
-              LDR ADC
+              Sunlight
             </span>
             <span className="text-lg font-bold font-display text-yellow-900 leading-tight">
               {currentReading.light}
@@ -169,7 +169,7 @@ export const ScreenLiveMonitoring: React.FC = () => {
             className="py-2.5 px-3 rounded-2xl bg-cream-100 hover:bg-cream-200 text-forest-900 font-semibold text-xs flex items-center justify-center gap-2 border border-cream-300 transition-all active:scale-[0.98]"
           >
             <RefreshCw className={`w-3.5 h-3.5 ${isRefreshing ? 'animate-spin' : ''}`} />
-            <span>Step Next Record</span>
+            <span>Refresh Now</span>
           </button>
 
           <button
@@ -177,7 +177,7 @@ export const ScreenLiveMonitoring: React.FC = () => {
             className="py-2.5 px-3 rounded-2xl bg-forest-600 hover:bg-forest-700 text-white font-semibold text-xs flex items-center justify-center gap-2 shadow-soft transition-all active:scale-[0.98]"
           >
             <BrainCircuit className="w-3.5 h-3.5 text-sage-200" />
-            <span>Run Decision Tree</span>
+            <span>Check Plant Health</span>
           </button>
         </div>
       </div>
@@ -188,7 +188,7 @@ export const ScreenLiveMonitoring: React.FC = () => {
           <div className="flex items-center gap-1.5">
             <Activity className="w-4 h-4 text-forest-600" />
             <h3 className="text-xs font-bold uppercase tracking-wider text-forest-900">
-              Sensor Stream Graph (20 samples)
+              Live Sensor Graph
             </h3>
           </div>
 
@@ -224,11 +224,11 @@ export const ScreenLiveMonitoring: React.FC = () => {
           <div className="flex items-center gap-1.5">
             <Sparkles className="w-4 h-4 text-forest-700" />
             <span className="text-xs font-bold uppercase tracking-wider text-forest-900">
-              STM32 ML Prediction: {diagnostic.condition}
+              Plant Health: {diagnostic.condition}
             </span>
           </div>
           <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold ${diagnostic.color.badge}`}>
-            Class {diagnostic.mlClassCode}
+            {diagnostic.headline}
           </span>
         </div>
 

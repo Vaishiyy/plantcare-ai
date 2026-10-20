@@ -181,11 +181,11 @@ export const ScreenSettings: React.FC = () => {
             <div className="flex items-center gap-1.5">
               <Radio className="w-4 h-4 text-amber-600" />
               <span className="text-xs font-bold text-stone-800">
-                Dataset Simulation Mode
+                Simulation Mode
               </span>
             </div>
             <span className="text-[11px] text-stone-500 block">
-              Stream records from the 4,500-sample training dataset
+              Stream realistic botanical sensor conditions
             </span>
           </div>
 
@@ -206,7 +206,7 @@ export const ScreenSettings: React.FC = () => {
             className="w-full py-2.5 px-3 rounded-2xl bg-stone-900 hover:bg-stone-800 text-emerald-400 font-mono text-xs flex items-center justify-center gap-2 shadow-soft transition-colors"
           >
             <Terminal className="w-4 h-4" />
-            <span>Open Raw UART Telemetry Terminal & Packet Injector</span>
+            <span>Open Device Serial Terminal & Diagnostics</span>
           </button>
         </div>
       </div>
@@ -278,7 +278,7 @@ export const ScreenSettings: React.FC = () => {
               Active Plant: {activeProfile.name}
             </span>
             <span className="text-[11px] text-stone-500">
-              Code: {activeProfile.plantCode} ({activeProfile.speciesKey})
+              {activeProfile.species}
             </span>
           </div>
 
@@ -316,7 +316,7 @@ export const ScreenSettings: React.FC = () => {
           <div className="flex items-center gap-1.5">
             <Code className="w-4 h-4 text-forest-600" />
             <h3 className="text-xs font-bold uppercase tracking-wider text-forest-900">
-              Model & System Documentation
+              System & Hardware Specifications
             </h3>
           </div>
 
@@ -329,7 +329,7 @@ export const ScreenSettings: React.FC = () => {
                   : 'text-stone-500 hover:text-stone-800'
               }`}
             >
-              ML Model
+              Care Logic
             </button>
             <button
               onClick={() => setActiveInfoTab('protocol')}
@@ -357,19 +357,16 @@ export const ScreenSettings: React.FC = () => {
         {activeInfoTab === 'model' && (
           <div className="text-xs text-stone-600 space-y-2 leading-relaxed">
             <p>
-              The application executes the exact C Decision Tree (<code>predict_plant_suitability</code>) from <code>plant_suitability_model.c</code> and <code>plant_suitability_model.h</code>.
+              Plant health is determined in real-time by an embedded classification algorithm evaluating the live microclimate against biological safety thresholds.
             </p>
-            <div className="p-3 bg-cream-50 rounded-2xl border border-cream-200 space-y-1 font-mono text-[11px]">
-              <div><strong>features[0]:</strong> Plant Type (0 = Aloe Vera, 1 = Pothos)</div>
-              <div><strong>features[1]:</strong> Soil moisture percentage (0-100%)</div>
-              <div><strong>features[2]:</strong> Temperature in Celsius (°C)</div>
-              <div><strong>features[3]:</strong> Air humidity percentage (0-100%)</div>
-              <div><strong>features[4]:</strong> LDR ADC reading (0-4095)</div>
-              <div className="pt-1 border-t border-cream-200 font-sans">
-                <strong>Output Classes:</strong> <code>0 = High stress</code>, <code>1 = Moderate stress</code>, <code>2 = Suitable</code>
-              </div>
-              <div className="font-sans text-forest-800 font-bold">
-                Validation Accuracy: 97.56% on 4,500 training rows
+            <div className="p-3 bg-cream-50 rounded-2xl border border-cream-200 space-y-1 text-[11px]">
+              <div><strong>Botanical Species:</strong> Aloe Vera / Golden Pothos</div>
+              <div><strong>Soil Moisture:</strong> Volumetric moisture percentage (0–100%)</div>
+              <div><strong>Ambient Temperature:</strong> Thermal comfort range in Celsius (°C)</div>
+              <div><strong>Relative Air Humidity:</strong> Transpiration boundary in percentage (0–100%)</div>
+              <div><strong>Sunlight Exposure:</strong> Photosynthetic light level (Lux)</div>
+              <div className="pt-1 border-t border-cream-200">
+                <strong>Evaluated States:</strong> Healthy & Thriving, Needs Attention, Critical Stress
               </div>
             </div>
           </div>

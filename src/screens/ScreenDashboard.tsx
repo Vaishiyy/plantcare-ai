@@ -78,16 +78,11 @@ export const ScreenDashboard: React.FC = () => {
           <div className="space-y-1">
             <div className="flex items-center gap-1.5 flex-wrap">
               <span className="text-[11px] font-bold uppercase tracking-wider text-forest-600/80">
-                Decision Tree Output
+                Plant Health Status
               </span>
-              <span className="text-[10px] px-2 py-0.2 rounded-full bg-forest-50 border border-forest-200 text-forest-700 font-medium">
-                Class {diagnostic.mlClassCode}: {diagnostic.condition}
+              <span className="text-[10px] px-2 py-0.5 rounded-full bg-forest-50 border border-forest-200 text-forest-700 font-semibold">
+                {diagnostic.condition}
               </span>
-              {currentReading.datasetRowIndex !== undefined && (
-                <span className="text-[10px] px-2 py-0.2 rounded-full bg-cream-100 border border-cream-300 text-stone-600 font-mono">
-                  Row #{currentReading.datasetRowIndex}
-                </span>
-              )}
             </div>
             <h2 className="text-xl font-display font-bold text-forest-900 tracking-tight">
               {diagnostic.headline}
@@ -150,10 +145,10 @@ export const ScreenDashboard: React.FC = () => {
       <div className="flex items-center justify-between px-1">
         <div>
           <h3 className="text-sm font-bold font-display text-forest-900">
-            Microclimate Telemetry ({activeProfile.name})
+            Environmental Telemetry ({activeProfile.name})
           </h3>
           <span className="text-[11px] text-stone-500">
-            Real sensor features matching STM32 Decision Tree inputs
+            Live readings for your plant's environment
           </span>
         </div>
 
@@ -206,9 +201,9 @@ export const ScreenDashboard: React.FC = () => {
         />
 
         <SensorCard
-          title="LDR Light"
+          title="Sunlight"
           value={currentReading.light}
-          unit="ADC"
+          unit="Lux"
           minTarget={activeProfile.thresholds.lightMin}
           maxTarget={activeProfile.thresholds.lightMax}
           icon={Sun}
@@ -218,21 +213,21 @@ export const ScreenDashboard: React.FC = () => {
         />
       </div>
 
-      {/* Dataset & Viva Presets Strip */}
+      {/* Simulation Presets Strip */}
       <div className="bg-amber-50/70 border border-amber-200/80 rounded-2xl p-3.5 space-y-2">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-1.5">
-            <Database className="w-4 h-4 text-amber-700" />
-            <span className="text-xs font-bold text-amber-900 uppercase tracking-wider">
-              Dataset ML Scenarios (4,500 Rows)
+            <Sparkles className="w-4 h-4 text-emerald-700" />
+            <span className="text-xs font-bold text-forest-900 uppercase tracking-wider">
+              Simulation Presets
             </span>
           </div>
-          <span className="text-[10px] text-amber-800 font-semibold bg-white/80 px-2 py-0.5 rounded-full border border-amber-300">
-            {activeProfile.speciesKey}
+          <span className="text-[10px] text-forest-800 font-semibold bg-white/80 px-2 py-0.5 rounded-full border border-forest-300">
+            {activeProfile.name}
           </span>
         </div>
-        <p className="text-[11px] text-amber-800 leading-snug">
-          Inject authentic records from the training dataset directly into the STM32 Decision Tree model:
+        <p className="text-[11px] text-stone-600 leading-snug">
+          Test how your plant responds to different environmental conditions:
         </p>
 
         <div className="grid grid-cols-4 gap-1.5 pt-1">
@@ -240,25 +235,25 @@ export const ScreenDashboard: React.FC = () => {
             onClick={() => setScenario('dataset_suitable')}
             className="py-1.5 px-2 rounded-xl text-[11px] font-semibold bg-white border border-emerald-300 text-emerald-800 hover:bg-emerald-50 transition-all text-center shadow-soft"
           >
-            Suitable (2)
+            Optimal
           </button>
           <button
             onClick={() => setScenario('dataset_moderate')}
             className="py-1.5 px-2 rounded-xl text-[11px] font-semibold bg-white border border-amber-300 text-amber-800 hover:bg-amber-50 transition-all text-center shadow-soft"
           >
-            Moderate (1)
+            Needs Care
           </button>
           <button
             onClick={() => setScenario('dataset_high_stress')}
             className="py-1.5 px-2 rounded-xl text-[11px] font-semibold bg-white border border-rose-300 text-rose-800 hover:bg-rose-50 transition-all text-center shadow-soft"
           >
-            High Stress (0)
+            High Stress
           </button>
           <button
             onClick={() => setScenario('dataset_stream')}
             className="py-1.5 px-2 rounded-xl text-[11px] font-semibold bg-forest-700 border border-forest-800 text-white hover:bg-forest-800 transition-all text-center shadow-soft"
           >
-            Next Row ▶
+            Cycle Next ▶
           </button>
         </div>
       </div>

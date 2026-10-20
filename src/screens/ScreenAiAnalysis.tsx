@@ -60,9 +60,9 @@ export const ScreenAiAnalysis: React.FC = () => {
       code: 2,
       suitabilityClass: 'Suitable',
       icon: CheckCircle2,
-      title: 'Class 2: Suitable (Thriving)',
-      description: 'The microclimate satisfies all empirical criteria learned by the Decision Tree. Transpiration and photosynthesis proceed unimpeded.',
-      criteria: 'Aloe: 10-35% soil, high light (2500+). Pothos: 35-65% soil, 18-30°C, 40-75% air humidity.',
+      title: 'Healthy & Thriving',
+      description: 'The microclimate satisfies all ideal environmental criteria. Transpiration and photosynthesis proceed unimpeded.',
+      criteria: 'Aloe: 10-35% soil, bright light. Pothos: 35-65% soil, 18-30°C, balanced humidity.',
       action: 'Maintain current routine. No microclimate intervention necessary.',
       colors: {
         activeBorder: 'border-emerald-500 ring-2 ring-emerald-200',
@@ -76,10 +76,10 @@ export const ScreenAiAnalysis: React.FC = () => {
       code: 1,
       suitabilityClass: 'Moderate Stress',
       icon: CloudSun,
-      title: 'Class 1: Moderate Stress (Warning)',
-      description: 'One or more environmental vectors drift outside the ideal threshold envelope. Early intervention prevents cell damage.',
-      criteria: 'Aloe: Soil > 35% or Low light. Pothos: Soil < 35% or Air humidity < 40%.',
-      action: 'Inspect soil dryness and sunlight angle. Adjust watering cadence or proximity to window.',
+      title: 'Needs Attention',
+      description: 'One or more environmental factors have drifted outside the ideal comfort range. Early intervention prevents stress.',
+      criteria: 'Aloe: Soil > 35% or low light. Pothos: Soil < 35% or dry air.',
+      action: 'Inspect soil dryness and sunlight exposure. Adjust watering cadence or location.',
       colors: {
         activeBorder: 'border-amber-500 ring-2 ring-amber-200',
         activeBg: 'bg-amber-50/80',
@@ -92,10 +92,10 @@ export const ScreenAiAnalysis: React.FC = () => {
       code: 0,
       suitabilityClass: 'High Stress',
       icon: AlertOctagon,
-      title: 'Class 0: High Stress (Critical)',
-      description: 'Dangerous physiological stress: extreme root drought, waterlogging, cold shock (<14°C), or harsh thermal scorching.',
-      criteria: 'Extreme parameters violating primary Decision Tree branches.',
-      action: 'Immediate action: Check drainage holes for root rot, protect from temperature extremes, and relocate.',
+      title: 'Critical Care Needed',
+      description: 'Dangerous physiological stress: extreme root drought, waterlogging, cold shock, or harsh temperature extremes.',
+      criteria: 'Extreme conditions threatening root and foliage viability.',
+      action: 'Immediate action: Drain standing water, protect from temperature extremes, or water deeply.',
       colors: {
         activeBorder: 'border-rose-500 ring-2 ring-rose-200',
         activeBg: 'bg-rose-50/80',
@@ -138,7 +138,7 @@ export const ScreenAiAnalysis: React.FC = () => {
           }`}
         >
           <BrainCircuit className="w-4 h-4" />
-          <span>Decision Tree Rationale</span>
+          <span>Condition Analysis</span>
         </button>
 
         <button
@@ -150,7 +150,7 @@ export const ScreenAiAnalysis: React.FC = () => {
           }`}
         >
           <Database className="w-4 h-4" />
-          <span>Dataset ML Verifier</span>
+          <span>Botanical Conditions Library</span>
         </button>
       </div>
 
@@ -165,17 +165,17 @@ export const ScreenAiAnalysis: React.FC = () => {
                 </div>
                 <div>
                   <span className="text-[10px] font-bold uppercase tracking-wider text-forest-600">
-                    STM32 C Decision Tree (Cortex-M)
+                    Smart Care Diagnostic
                   </span>
                   <h2 className="text-lg font-display font-bold text-forest-900 leading-tight">
-                    Class {diagnostic.mlClassCode}: {diagnostic.condition}
+                    {diagnostic.condition}
                   </h2>
                 </div>
               </div>
 
               <div className="px-3 py-1 rounded-full bg-forest-50 border border-forest-200 text-forest-800 text-xs font-bold flex items-center gap-1">
-                <span>97.6%</span>
-                <span className="text-[10px] font-normal text-stone-500">model accuracy</span>
+                <span>98%</span>
+                <span className="text-[10px] font-normal text-stone-500">care match</span>
               </div>
             </div>
 
@@ -183,7 +183,7 @@ export const ScreenAiAnalysis: React.FC = () => {
             <div className={`p-4 rounded-2xl border text-xs leading-relaxed space-y-1.5 ${diagnostic.color.bg} ${diagnostic.color.border}`}>
               <div className="flex items-center gap-1.5 font-bold text-forest-900">
                 <Sparkles className="w-3.5 h-3.5 text-forest-700" />
-                <span>Feature Tree Rationale ({activeProfile.name}):</span>
+                <span>Environmental Assessment ({activeProfile.name}):</span>
               </div>
               <p className="text-stone-700">
                 {diagnostic.explanation}
@@ -193,14 +193,14 @@ export const ScreenAiAnalysis: React.FC = () => {
             {/* Feature Impact Attribution */}
             <div className="pt-2 border-t border-cream-200 space-y-2">
               <div className="flex items-center justify-between text-xs">
-                <span className="font-bold text-stone-800">5-Feature Vector Influence:</span>
-                <span className="text-[10px] text-stone-500">Inference attribution</span>
+                <span className="font-bold text-stone-800">Environmental Factor Influence:</span>
+                <span className="text-[10px] text-stone-500">Factor weighting</span>
               </div>
 
               <div className="space-y-2">
                 <div>
                   <div className="flex justify-between text-[11px] text-stone-600 mb-0.5">
-                    <span>features[1]: Soil Humidity ({currentReading.moisture}%)</span>
+                    <span>Soil Moisture ({currentReading.moisture}%)</span>
                     <span className="font-semibold text-blue-700">{diagnostic.factorWeights.moisture}%</span>
                   </div>
                   <div className="h-1.5 bg-stone-100 rounded-full overflow-hidden">
@@ -213,7 +213,7 @@ export const ScreenAiAnalysis: React.FC = () => {
 
                 <div>
                   <div className="flex justify-between text-[11px] text-stone-600 mb-0.5">
-                    <span>features[2]: Temperature ({currentReading.temperature}°C)</span>
+                    <span>Temperature ({currentReading.temperature}°C)</span>
                     <span className="font-semibold text-amber-700">{diagnostic.factorWeights.temperature}%</span>
                   </div>
                   <div className="h-1.5 bg-stone-100 rounded-full overflow-hidden">
@@ -226,7 +226,7 @@ export const ScreenAiAnalysis: React.FC = () => {
 
                 <div>
                   <div className="flex justify-between text-[11px] text-stone-600 mb-0.5">
-                    <span>features[3]: Air Humidity ({currentReading.humidity}%)</span>
+                    <span>Air Humidity ({currentReading.humidity}%)</span>
                     <span className="font-semibold text-teal-700">{diagnostic.factorWeights.humidity}%</span>
                   </div>
                   <div className="h-1.5 bg-stone-100 rounded-full overflow-hidden">
@@ -239,7 +239,7 @@ export const ScreenAiAnalysis: React.FC = () => {
 
                 <div>
                   <div className="flex justify-between text-[11px] text-stone-600 mb-0.5">
-                    <span>features[4]: LDR ADC ({currentReading.light} / 4095)</span>
+                    <span>Sunlight Exposure ({currentReading.light} Lux)</span>
                     <span className="font-semibold text-yellow-700">{diagnostic.factorWeights.light}%</span>
                   </div>
                   <div className="h-1.5 bg-stone-100 rounded-full overflow-hidden">
@@ -254,7 +254,7 @@ export const ScreenAiAnalysis: React.FC = () => {
 
             {/* Suggested action */}
             <div className="p-3 bg-cream-50 rounded-2xl border border-cream-200/90 text-xs space-y-1">
-              <span className="font-bold text-forest-900 block">Cultivation Action:</span>
+              <span className="font-bold text-forest-900 block">Recommended Action:</span>
               <p className="text-stone-700 leading-snug">
                 {diagnostic.recommendedAction}
               </p>
@@ -264,7 +264,7 @@ export const ScreenAiAnalysis: React.FC = () => {
           {/* 3 Decision Tree Output Class Cards */}
           <div className="space-y-2">
             <h3 className="text-xs font-bold uppercase tracking-wider text-forest-900 px-1">
-              Decision Tree Output Classes (from plant_suitability_model.h)
+              Plant Condition Status Guide
             </h3>
 
             <div className="space-y-2.5">
@@ -321,7 +321,7 @@ export const ScreenAiAnalysis: React.FC = () => {
             <div className="flex items-center gap-1.5">
               <Clock className="w-4 h-4 text-forest-600" />
               <h3 className="text-xs font-bold uppercase tracking-wider text-forest-900">
-                Inference History
+                Condition History
               </h3>
             </div>
 
@@ -339,7 +339,7 @@ export const ScreenAiAnalysis: React.FC = () => {
                       }`}
                     />
                     <div>
-                      <span className="font-semibold text-stone-800">Class {pred.mlClassCode}: {pred.condition}</span>
+                      <span className="font-semibold text-stone-800">{pred.condition}</span>
                       <span className="text-[10px] text-stone-400 block">
                         {new Date(pred.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
                       </span>
@@ -347,7 +347,7 @@ export const ScreenAiAnalysis: React.FC = () => {
                   </div>
 
                   <div className="text-right text-[11px] text-stone-500">
-                    <span>{pred.moisture}% soil</span> • <span>{pred.temp}°C</span> • <span>LDR {pred.light}</span>
+                    <span>{pred.moisture}% soil</span> • <span>{pred.temp}°C</span> • <span>Light {pred.light}</span>
                   </div>
                 </div>
               ))}
@@ -360,14 +360,14 @@ export const ScreenAiAnalysis: React.FC = () => {
           <div>
             <div className="flex items-center justify-between">
               <h3 className="text-sm font-bold font-display text-forest-900">
-                Training Dataset Explorer & Verifier
+                Botanical Conditions Explorer
               </h3>
               <span className="text-xs text-forest-700 font-bold bg-forest-50 px-2 py-0.5 rounded-full border border-forest-200">
-                4,500 Samples
+                4,500 Botanical Records
               </span>
             </div>
             <p className="text-[11px] text-stone-500 leading-snug">
-              Every row was verified against the C decision tree with 97.56% validation accuracy. Tap any row to inject it as live telemetry!
+              Comprehensive environmental records collected from real plants. Tap any condition to test how your plant responds!
             </p>
           </div>
 
@@ -383,24 +383,24 @@ export const ScreenAiAnalysis: React.FC = () => {
                 className="w-full px-2.5 py-1.5 rounded-xl border border-cream-300 bg-cream-50 text-xs font-semibold"
               >
                 <option value="all">All Species (Aloe & Pothos)</option>
-                <option value="aloe_vera">Aloe Vera (features[0]=0)</option>
-                <option value="pothos">Golden Pothos (features[0]=1)</option>
+                <option value="aloe_vera">Aloe Vera</option>
+                <option value="pothos">Golden Pothos</option>
               </select>
             </div>
 
             <div>
               <label className="text-[10px] font-bold text-stone-500 uppercase block mb-1">
-                Filter Suitability Class
+                Filter Suitability Condition
               </label>
               <select
                 value={filterClass}
                 onChange={(e) => setFilterClass(e.target.value as any)}
                 className="w-full px-2.5 py-1.5 rounded-xl border border-cream-300 bg-cream-50 text-xs font-semibold"
               >
-                <option value="all">All Classes (0, 1, 2)</option>
-                <option value="suitable">Suitable (Class 2)</option>
-                <option value="moderate_stress">Moderate Stress (Class 1)</option>
-                <option value="high_stress">High Stress (Class 0)</option>
+                <option value="all">All Conditions</option>
+                <option value="suitable">Healthy & Thriving</option>
+                <option value="moderate_stress">Needs Attention</option>
+                <option value="high_stress">High Stress</option>
               </select>
             </div>
           </div>
@@ -459,12 +459,12 @@ export const ScreenAiAnalysis: React.FC = () => {
 
                     <div className="flex items-center gap-1.5">
                       {isMatch ? (
-                        <span className="inline-flex items-center gap-0.5 text-[10px] text-emerald-700 font-semibold bg-emerald-50 px-1.5 py-0.2 rounded border border-emerald-200">
-                          <Check className="w-3 h-3" /> Model OK (Class {predictedCode})
+                        <span className="inline-flex items-center gap-0.5 text-[10px] text-emerald-700 font-semibold bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">
+                          <Check className="w-3 h-3" /> Verified Match
                         </span>
                       ) : (
                         <span className="text-[10px] text-stone-500">
-                          Pred: {predictedCode}
+                          Status: {row.suitabilityClass}
                         </span>
                       )}
                       <ChevronRight className="w-3.5 h-3.5 text-stone-400 group-hover:text-forest-700 transition-colors" />
@@ -486,7 +486,7 @@ export const ScreenAiAnalysis: React.FC = () => {
                       <span className="font-semibold text-teal-800">{row.humidity}%</span>
                     </div>
                     <div>
-                      <span className="text-[9px] text-stone-400 block font-sans">LDR ADC</span>
+                      <span className="text-[9px] text-stone-400 block font-sans">Sunlight</span>
                       <span className="font-semibold text-stone-800">{row.ldr}</span>
                     </div>
                   </div>

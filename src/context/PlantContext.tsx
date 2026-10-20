@@ -146,15 +146,15 @@ export const PlantProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         trigger(
           'moisture_critical',
           'High Stress Detected',
-          `ML Decision Tree classified environment as High Stress (Soil: ${reading.moisture}%, Temp: ${reading.temperature}°C, LDR: ${reading.light}).`,
+          `Severe stress detected: immediate attention required (Soil: ${reading.moisture}%, Temp: ${reading.temperature}°C).`,
           'critical',
           reading.moisture
         );
       } else if (alertPrefs.lowMoisture && reading.suitabilityClass === 'moderate_stress') {
         trigger(
           'moisture_low',
-          'Moderate Stress Notice',
-          `Sub-optimal conditions classified for ${activeProfile.name} (Soil: ${reading.moisture}%, Temp: ${reading.temperature}°C).`,
+          'Needs Attention',
+          `Sub-optimal conditions for ${activeProfile.name} (Soil: ${reading.moisture}%, Temp: ${reading.temperature}°C). Check moisture and placement.`,
           'warning',
           reading.moisture
         );
@@ -260,10 +260,10 @@ export const PlantProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     if (enabled) {
       if (connectionState === 'connected') disconnectHardware();
       setConnectionProtocol('demo');
-      setStatusMessage('Demo Mode: Streaming records from plant_suitability_dataset.csv');
-      addLog('sys', 'Demo Mode active (reading 4,500 training dataset rows)');
+      setStatusMessage('Simulation Mode: Streaming plant care telemetry');
+      addLog('sys', 'Simulation Mode active');
     } else {
-      setStatusMessage('Hardware Mode active. Ready for STM32 BLE or Serial.');
+      setStatusMessage('Hardware Mode active. Ready to connect device.');
       addLog('sys', 'Hardware Mode active');
     }
   };
@@ -294,7 +294,7 @@ export const PlantProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       currentReading.light,
       activeProfile.thresholds
     );
-    setStatusMessage(`ML Decision Tree: ${diagnostic.condition} (Code ${diagnostic.mlClassCode})`);
+    setStatusMessage(`Plant Condition: ${diagnostic.headline} (${diagnostic.condition})`);
     setActiveScreen('ai_analysis');
   };
 

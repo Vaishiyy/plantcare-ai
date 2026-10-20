@@ -139,9 +139,9 @@ export const ScreenAnalytics: React.FC = () => {
         <div className="flex items-center justify-between">
           <div>
             <h2 className="text-base font-bold font-display text-forest-900">
-              Sensor Analytics & Dataset Trends
+              Plant Health & Sensor Trends
             </h2>
-            <span className="text-xs text-stone-500">Telemetry history for {activeProfile.name}</span>
+            <span className="text-xs text-stone-500">Historical environmental tracking for {activeProfile.name}</span>
           </div>
 
           <button
@@ -190,7 +190,7 @@ export const ScreenAnalytics: React.FC = () => {
         <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-forest-50 border border-forest-200 text-forest-800 text-[11px]">
           <Database className="w-3.5 h-3.5 shrink-0" />
           <span>
-            Telemetry stream matches 4,500 training rows from <code>plant_suitability_dataset.csv</code>
+            Verified historical readings and automated health evaluations
           </span>
         </div>
       </div>
@@ -275,13 +275,13 @@ export const ScreenAnalytics: React.FC = () => {
           <div className="p-3.5 bg-white rounded-2xl border border-cream-200 shadow-soft space-y-1.5">
             <div className="flex items-center gap-1.5 text-yellow-700">
               <Sun className="w-4 h-4" />
-              <span className="text-xs font-bold text-stone-800">LDR Reading</span>
+              <span className="text-xs font-bold text-stone-800">Sunlight</span>
             </div>
             <div className="flex items-baseline justify-between">
               <span className="text-xl font-bold font-display text-forest-900">
                 {stats.avgLight}
               </span>
-              <span className="text-[10px] font-semibold text-stone-400">ADC Avg</span>
+              <span className="text-[10px] font-semibold text-stone-400">Lux Avg</span>
             </div>
             <div className="flex justify-between text-[11px] text-stone-500 pt-1 border-t border-cream-100">
               <span>Low: {stats.minLight}</span>
@@ -294,26 +294,26 @@ export const ScreenAnalytics: React.FC = () => {
       {/* Decision Tree Classification Breakdown */}
       <div className="bg-white rounded-3xl border border-cream-200 p-4 shadow-card space-y-3">
         <h3 className="text-xs font-bold uppercase tracking-wider text-forest-900">
-          Decision Tree Classification Breakdown (Period)
+          Plant Condition Breakdown (Period)
         </h3>
 
         <div className="grid grid-cols-3 gap-2 text-center text-xs">
           <div className="p-2.5 rounded-2xl bg-emerald-50 border border-emerald-200">
-            <span className="text-[10px] font-semibold text-emerald-800 block">Class 2: Suitable</span>
+            <span className="text-[10px] font-semibold text-emerald-800 block">Healthy & Thriving</span>
             <span className="text-lg font-bold font-display text-emerald-900">
               {stats.classCounts['suitable']}
             </span>
           </div>
 
           <div className="p-2.5 rounded-2xl bg-amber-50 border border-amber-200">
-            <span className="text-[10px] font-semibold text-amber-800 block">Class 1: Moderate</span>
+            <span className="text-[10px] font-semibold text-amber-800 block">Needs Attention</span>
             <span className="text-lg font-bold font-display text-amber-900">
               {stats.classCounts['moderate_stress']}
             </span>
           </div>
 
           <div className="p-2.5 rounded-2xl bg-rose-50 border border-rose-200">
-            <span className="text-[10px] font-semibold text-rose-800 block">Class 0: High Stress</span>
+            <span className="text-[10px] font-semibold text-rose-800 block">Critical Stress</span>
             <span className="text-lg font-bold font-display text-rose-900">
               {stats.classCounts['high_stress']}
             </span>
