@@ -3,16 +3,14 @@ import { usePlant } from '../context/PlantContext';
 import { InteractiveLineChart } from '../components/InteractiveLineChart';
 import {
   Download,
-  Calendar,
-  TrendingUp,
   Droplets,
   Thermometer,
   CloudRain,
   Sun,
   AlertCircle,
-  FileSpreadsheet,
   Check,
   History,
+  Database,
 } from 'lucide-react';
 import { PlantCondition, SensorReading } from '../types';
 
@@ -21,10 +19,8 @@ export const ScreenAnalytics: React.FC = () => {
   const [timeRange, setTimeRange] = useState<'24h' | '7d' | '30d'>('7d');
   const [downloadSuccess, setDownloadSuccess] = useState(false);
 
-  // Filter dataset according to selected time range
   const filteredData = useMemo(() => {
     if (!history || history.length === 0) return [];
-
     const now = Date.now();
     let durationMs = 7 * 24 * 3600 * 1000;
     if (timeRange === '24h') durationMs = 24 * 3600 * 1000;
@@ -32,7 +28,6 @@ export const ScreenAnalytics: React.FC = () => {
 
     const cutoff = now - durationMs;
     const subset = history.filter((h) => h.timestamp >= cutoff);
-    // If not enough data in window, take appropriate slice so charts are always informative
     if (subset.length < 5) {
       if (timeRange === '24h') return history.slice(-15);
       if (timeRange === '7d') return history.slice(-35);
@@ -41,7 +36,6 @@ export const ScreenAnalytics: React.FC = () => {
     return subset;
   }, [history, timeRange]);
 
-  // Aggregate statistics
   const stats = useMemo(() => {
     if (filteredData.length === 0) {
       return {
@@ -57,7 +51,7 @@ export const ScreenAnalytics: React.FC = () => {
         avgLight: 0,
         minLight: 0,
         maxLight: 0,
-        conditionCounts: { Healthy: 0, 'Needs Water': 0, 'Too Dry': 0, 'Poor Environment': 0 },
+        classCounts: { suitable: 0, moderate_stress: 0, high_stress: 0 },
       };
     }
 
@@ -65,11 +59,10 @@ export const ScreenAnalytics: React.FC = () => {
     let sumT = 0, minT = Infinity, maxT = -Infinity;
     let sumH = 0, minH = Infinity, maxH = -Infinity;
     let sumL = 0, minL = Infinity, maxL = -Infinity;
-    const conditionCounts: Record<PlantCondition, number> = {
-      Healthy: 0,
-      'Needs Water': 0,
-      'Too Dry': 0,
-      'Poor Environment': 0,
+    const classCounts: Record<string, number> = {
+      suitable: 0,
+      moderate_stress: 0,
+      high_stress: 0,
     };
 
     filteredData.forEach((d) => {
@@ -89,8 +82,9 @@ export const ScreenAnalytics: React.FC = () => {
       minL = Math.min(minL, d.light);
       maxL = Math.max(maxL, d.light);
 
-      if (conditionCounts[d.condition] !== undefined) {
-        conditionCounts[d.condition]++;
+      const sClass = d.suitabilityClass || (d.mlClassCode === 2 ? 'suitable' : d.mlClassCode === 1 ? 'moderate_stress' : 'high_stress');
+      if (classCounts[sClass] !== undefined) {
+        classCounts[sClass]++;
       }
     });
 
@@ -108,11 +102,10 @@ export const ScreenAnalytics: React.FC = () => {
       avgLight: Math.round(sumL / count),
       minLight: minL,
       maxLight: maxL,
-      conditionCounts,
+      classCounts,
     };
   }, [filteredData]);
 
-  // Timeline of condition changes (detect state transitions)
   const conditionTimeline = useMemo(() => {
     if (filteredData.length === 0) return [];
     const events: { from: PlantCondition; to: PlantCondition; timestamp: number }[] = [];
@@ -139,8 +132,6 @@ export const ScreenAnalytics: React.FC = () => {
     }
   };
 
-  const isSyntheticSample = filteredData.some((d) => d.isSynthetic) || isDemoMode;
-
   return (
     <div className="space-y-4 pb-20">
       {/* Time Range Filter Header */}
@@ -148,9 +139,9 @@ export const ScreenAnalytics: React.FC = () => {
         <div className="flex items-center justify-between">
           <div>
             <h2 className="text-base font-bold font-display text-forest-900">
-              Sensor Analytics & Trends
+              Sensor Analytics & Dataset Trends
             </h2>
-            <span className="text-xs text-stone-500">Historical telemetry across microclimate</span>
+            <span className="text-xs text-stone-500">Telemetry history for {activeProfile.name}</span>
           </div>
 
           <button
@@ -196,25 +187,22 @@ export const ScreenAnalytics: React.FC = () => {
           })}
         </div>
 
-        {/* Synthetic Data Indicator Badge */}
-        {isSyntheticSample && (
-          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-50 border border-amber-200 text-amber-800 text-[11px]">
-            <AlertCircle className="w-3.5 h-3.5 shrink-0" />
-            <span>
-              Historical dataset includes simulated demonstration telemetry.
-            </span>
-          </div>
-        )}
+        <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-forest-50 border border-forest-200 text-forest-800 text-[11px]">
+          <Database className="w-3.5 h-3.5 shrink-0" />
+          <span>
+            Telemetry stream matches 4,500 training rows from <code>plant_suitability_dataset.csv</code>
+          </span>
+        </div>
       </div>
 
       {/* Interactive Line Chart */}
       <div className="space-y-2">
         <div className="flex items-center justify-between px-1">
           <h3 className="text-xs font-bold uppercase tracking-wider text-forest-900">
-            Multi-Sensor Historical Graph
+            Historical Sensor Graph
           </h3>
           <span className="text-[10px] text-stone-500">
-            {filteredData.length} records in window
+            {filteredData.length} samples in view
           </span>
         </div>
 
@@ -226,14 +214,13 @@ export const ScreenAnalytics: React.FC = () => {
         />
       </div>
 
-      {/* Aggregate Sensor Summary Cards (Average, High, Low) */}
+      {/* Aggregate Sensor Summary Cards */}
       <div className="space-y-2">
         <h3 className="text-xs font-bold uppercase tracking-wider text-forest-900 px-1">
           Period Min / Max / Average
         </h3>
 
         <div className="grid grid-cols-2 gap-3">
-          {/* Moisture Stats */}
           <div className="p-3.5 bg-white rounded-2xl border border-cream-200 shadow-soft space-y-1.5">
             <div className="flex items-center gap-1.5 text-blue-700">
               <Droplets className="w-4 h-4" />
@@ -251,7 +238,6 @@ export const ScreenAnalytics: React.FC = () => {
             </div>
           </div>
 
-          {/* Temperature Stats */}
           <div className="p-3.5 bg-white rounded-2xl border border-cream-200 shadow-soft space-y-1.5">
             <div className="flex items-center gap-1.5 text-amber-700">
               <Thermometer className="w-4 h-4" />
@@ -269,11 +255,10 @@ export const ScreenAnalytics: React.FC = () => {
             </div>
           </div>
 
-          {/* Humidity Stats */}
           <div className="p-3.5 bg-white rounded-2xl border border-cream-200 shadow-soft space-y-1.5">
             <div className="flex items-center gap-1.5 text-teal-700">
               <CloudRain className="w-4 h-4" />
-              <span className="text-xs font-bold text-stone-800">Humidity</span>
+              <span className="text-xs font-bold text-stone-800">Air Humidity</span>
             </div>
             <div className="flex items-baseline justify-between">
               <span className="text-xl font-bold font-display text-forest-900">
@@ -287,17 +272,16 @@ export const ScreenAnalytics: React.FC = () => {
             </div>
           </div>
 
-          {/* Light Stats */}
           <div className="p-3.5 bg-white rounded-2xl border border-cream-200 shadow-soft space-y-1.5">
             <div className="flex items-center gap-1.5 text-yellow-700">
               <Sun className="w-4 h-4" />
-              <span className="text-xs font-bold text-stone-800">Light Exposure</span>
+              <span className="text-xs font-bold text-stone-800">LDR Reading</span>
             </div>
             <div className="flex items-baseline justify-between">
               <span className="text-xl font-bold font-display text-forest-900">
                 {stats.avgLight}
               </span>
-              <span className="text-[10px] font-semibold text-stone-400">lux Avg</span>
+              <span className="text-[10px] font-semibold text-stone-400">ADC Avg</span>
             </div>
             <div className="flex justify-between text-[11px] text-stone-500 pt-1 border-t border-cream-100">
               <span>Low: {stats.minLight}</span>
@@ -307,55 +291,48 @@ export const ScreenAnalytics: React.FC = () => {
         </div>
       </div>
 
-      {/* Condition Distribution in Period */}
+      {/* Decision Tree Classification Breakdown */}
       <div className="bg-white rounded-3xl border border-cream-200 p-4 shadow-card space-y-3">
         <h3 className="text-xs font-bold uppercase tracking-wider text-forest-900">
-          Plant-Health Classification Breakdown
+          Decision Tree Classification Breakdown (Period)
         </h3>
 
-        <div className="grid grid-cols-4 gap-2 text-center text-xs">
-          <div className="p-2 rounded-2xl bg-emerald-50 border border-emerald-200">
-            <span className="text-[10px] font-semibold text-emerald-800 block">Healthy</span>
-            <span className="text-base font-bold font-display text-emerald-900">
-              {stats.conditionCounts['Healthy']}
+        <div className="grid grid-cols-3 gap-2 text-center text-xs">
+          <div className="p-2.5 rounded-2xl bg-emerald-50 border border-emerald-200">
+            <span className="text-[10px] font-semibold text-emerald-800 block">Class 2: Suitable</span>
+            <span className="text-lg font-bold font-display text-emerald-900">
+              {stats.classCounts['suitable']}
             </span>
           </div>
 
-          <div className="p-2 rounded-2xl bg-amber-50 border border-amber-200">
-            <span className="text-[10px] font-semibold text-amber-800 block">Thirsty</span>
-            <span className="text-base font-bold font-display text-amber-900">
-              {stats.conditionCounts['Needs Water']}
+          <div className="p-2.5 rounded-2xl bg-amber-50 border border-amber-200">
+            <span className="text-[10px] font-semibold text-amber-800 block">Class 1: Moderate</span>
+            <span className="text-lg font-bold font-display text-amber-900">
+              {stats.classCounts['moderate_stress']}
             </span>
           </div>
 
-          <div className="p-2 rounded-2xl bg-orange-50 border border-orange-200">
-            <span className="text-[10px] font-semibold text-orange-800 block">Too Dry</span>
-            <span className="text-base font-bold font-display text-orange-900">
-              {stats.conditionCounts['Too Dry']}
-            </span>
-          </div>
-
-          <div className="p-2 rounded-2xl bg-rose-50 border border-rose-200">
-            <span className="text-[10px] font-semibold text-rose-800 block">Poor Env</span>
-            <span className="text-base font-bold font-display text-rose-900">
-              {stats.conditionCounts['Poor Environment']}
+          <div className="p-2.5 rounded-2xl bg-rose-50 border border-rose-200">
+            <span className="text-[10px] font-semibold text-rose-800 block">Class 0: High Stress</span>
+            <span className="text-lg font-bold font-display text-rose-900">
+              {stats.classCounts['high_stress']}
             </span>
           </div>
         </div>
       </div>
 
-      {/* Timeline of Important Condition Changes */}
+      {/* Timeline of Condition Changes */}
       <div className="bg-white rounded-3xl border border-cream-200 p-4 shadow-card space-y-3">
         <div className="flex items-center gap-1.5">
           <History className="w-4 h-4 text-forest-600" />
           <h3 className="text-xs font-bold uppercase tracking-wider text-forest-900">
-            Condition Transition Timeline
+            State Transition Timeline
           </h3>
         </div>
 
         {conditionTimeline.length === 0 ? (
           <p className="text-xs text-stone-500 italic py-2">
-            No health state transitions recorded during this timeframe (plant remained steady).
+            No health state transitions recorded during this timeframe.
           </p>
         ) : (
           <div className="space-y-2">

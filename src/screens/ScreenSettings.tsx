@@ -5,18 +5,12 @@ import { EditPlantModal } from '../components/EditPlantModal';
 import {
   Bluetooth,
   Radio,
-  Sliders,
   Cpu,
   Download,
   Terminal,
-  RefreshCw,
-  CheckCircle2,
-  AlertTriangle,
   Info,
-  Layers,
-  ChevronRight,
-  ExternalLink,
   Code,
+  Database,
 } from 'lucide-react';
 
 export const ScreenSettings: React.FC = () => {
@@ -43,7 +37,7 @@ export const ScreenSettings: React.FC = () => {
   const [isTerminalOpen, setIsTerminalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [downloadSuccess, setDownloadSuccess] = useState(false);
-  const [activeInfoTab, setActiveInfoTab] = useState<'about' | 'protocol' | 'hardware'>('about');
+  const [activeInfoTab, setActiveInfoTab] = useState<'about' | 'protocol' | 'model'>('model');
 
   const handleBleConnect = async () => {
     setIsConnecting(true);
@@ -101,7 +95,6 @@ export const ScreenSettings: React.FC = () => {
           </span>
         </div>
 
-        {/* Status explanation */}
         <div className="p-3 bg-cream-50/80 rounded-2xl border border-cream-200 text-xs text-stone-700 flex items-start gap-2">
           <Info className="w-4 h-4 text-forest-600 shrink-0 mt-0.5" />
           <div className="space-y-0.5">
@@ -110,7 +103,6 @@ export const ScreenSettings: React.FC = () => {
           </div>
         </div>
 
-        {/* Connection Action Buttons */}
         {connectionState === 'connected' ? (
           <div className="space-y-2">
             <div className="p-3 bg-emerald-50/70 border border-emerald-200 rounded-2xl flex items-center justify-between">
@@ -133,7 +125,6 @@ export const ScreenSettings: React.FC = () => {
         ) : (
           <div className="space-y-3">
             <div className="grid grid-cols-2 gap-2.5">
-              {/* Option A: Web Bluetooth (BLE) */}
               <button
                 onClick={handleBleConnect}
                 disabled={isConnecting}
@@ -148,7 +139,6 @@ export const ScreenSettings: React.FC = () => {
                 </span>
               </button>
 
-              {/* Option B: Web Serial (HC-05 / USB-UART) */}
               <button
                 onClick={handleSerialConnect}
                 disabled={isConnecting}
@@ -164,7 +154,6 @@ export const ScreenSettings: React.FC = () => {
               </button>
             </div>
 
-            {/* Serial Baud Rate Selector */}
             <div className="flex items-center justify-between text-xs text-stone-600 px-1">
               <span>Serial Baud Rate:</span>
               <div className="flex gap-1.5">
@@ -192,11 +181,11 @@ export const ScreenSettings: React.FC = () => {
             <div className="flex items-center gap-1.5">
               <Radio className="w-4 h-4 text-amber-600" />
               <span className="text-xs font-bold text-stone-800">
-                Demo Simulation Mode
+                Dataset Simulation Mode
               </span>
             </div>
             <span className="text-[11px] text-stone-500 block">
-              Generate realistic sensor telemetry without physical hardware
+              Stream records from the 4,500-sample training dataset
             </span>
           </div>
 
@@ -211,7 +200,6 @@ export const ScreenSettings: React.FC = () => {
           </label>
         </div>
 
-        {/* Raw Serial Terminal trigger */}
         <div className="pt-2">
           <button
             onClick={() => setIsTerminalOpen(true)}
@@ -223,20 +211,19 @@ export const ScreenSettings: React.FC = () => {
         </div>
       </div>
 
-      {/* App Preferences Card */}
+      {/* App Preferences */}
       <div className="bg-white rounded-3xl border border-cream-200 p-5 shadow-card space-y-4">
         <h3 className="text-sm font-bold font-display text-forest-900">
           Preferences & Telemetry Settings
         </h3>
 
-        {/* Refresh Interval */}
         <div className="flex items-center justify-between">
           <div>
             <span className="text-xs font-bold text-stone-800 block">
               Sensor Polling Interval
             </span>
             <span className="text-[11px] text-stone-500">
-              Frequency of readings update
+              Playback frequency of telemetry
             </span>
           </div>
 
@@ -248,11 +235,9 @@ export const ScreenSettings: React.FC = () => {
             <option value={2000}>2 seconds (High)</option>
             <option value={3000}>3 seconds (Standard)</option>
             <option value={5000}>5 seconds (Battery Save)</option>
-            <option value={10000}>10 seconds (Slow)</option>
           </select>
         </div>
 
-        {/* Temperature Unit */}
         <div className="flex items-center justify-between pt-2 border-t border-cream-100">
           <div>
             <span className="text-xs font-bold text-stone-800 block">
@@ -287,14 +272,13 @@ export const ScreenSettings: React.FC = () => {
           </div>
         </div>
 
-        {/* Plant Profile Config Shortcut */}
         <div className="flex items-center justify-between pt-2 border-t border-cream-100">
           <div>
             <span className="text-xs font-bold text-stone-800 block">
               Active Plant: {activeProfile.name}
             </span>
             <span className="text-[11px] text-stone-500">
-              Configure species thresholds and care details
+              Code: {activeProfile.plantCode} ({activeProfile.speciesKey})
             </span>
           </div>
 
@@ -306,7 +290,6 @@ export const ScreenSettings: React.FC = () => {
           </button>
         </div>
 
-        {/* Export Data */}
         <div className="flex items-center justify-between pt-2 border-t border-cream-100">
           <div>
             <span className="text-xs font-bold text-stone-800 block">
@@ -327,26 +310,26 @@ export const ScreenSettings: React.FC = () => {
         </div>
       </div>
 
-      {/* Embedded Project Documentation & Architecture */}
+      {/* Model & Architecture Documentation */}
       <div className="bg-white rounded-3xl border border-cream-200 p-5 shadow-card space-y-3">
         <div className="flex items-center justify-between border-b border-cream-200 pb-2">
           <div className="flex items-center gap-1.5">
             <Code className="w-4 h-4 text-forest-600" />
             <h3 className="text-xs font-bold uppercase tracking-wider text-forest-900">
-              System Documentation
+              Model & System Documentation
             </h3>
           </div>
 
           <div className="flex gap-1 text-[11px]">
             <button
-              onClick={() => setActiveInfoTab('about')}
+              onClick={() => setActiveInfoTab('model')}
               className={`px-2 py-1 rounded-lg font-medium ${
-                activeInfoTab === 'about'
+                activeInfoTab === 'model'
                   ? 'bg-forest-600 text-white'
                   : 'text-stone-500 hover:text-stone-800'
               }`}
             >
-              Architecture
+              ML Model
             </button>
             <button
               onClick={() => setActiveInfoTab('protocol')}
@@ -356,31 +339,38 @@ export const ScreenSettings: React.FC = () => {
                   : 'text-stone-500 hover:text-stone-800'
               }`}
             >
-              UART Protocol
+              Protocol
             </button>
             <button
-              onClick={() => setActiveInfoTab('hardware')}
+              onClick={() => setActiveInfoTab('about')}
               className={`px-2 py-1 rounded-lg font-medium ${
-                activeInfoTab === 'hardware'
+                activeInfoTab === 'about'
                   ? 'bg-forest-600 text-white'
                   : 'text-stone-500 hover:text-stone-800'
               }`}
             >
-              STM32 Pinout
+              Hardware
             </button>
           </div>
         </div>
 
-        {activeInfoTab === 'about' && (
+        {activeInfoTab === 'model' && (
           <div className="text-xs text-stone-600 space-y-2 leading-relaxed">
             <p>
-              <strong>PlantCare AI</strong> is an embedded IoT and TinyML project designed for STM32 microcontrollers. It continuously samples physical environmental transducers and executes an on-chip classifier to detect plant health distress before cellular wilting occurs.
+              The application executes the exact C Decision Tree (<code>predict_plant_suitability</code>) from <code>plant_suitability_model.c</code> and <code>plant_suitability_model.h</code>.
             </p>
-            <div className="p-3 bg-cream-50 rounded-2xl border border-cream-200 space-y-1 text-[11px]">
-              <div><strong>Core Microcontroller:</strong> STM32F4 / STM32F103 (ARM Cortex-M)</div>
-              <div><strong>Sensors:</strong> Soil Moisture (ADC), LDR Light (ADC), DHT11 (GPIO)</div>
-              <div><strong>Peripherals:</strong> 0.96" I²C OLED, HC-05 / HM-10 Bluetooth (UART)</div>
-              <div><strong>ML Engine:</strong> Embedded TinyML Condition Classifier (4 classes)</div>
+            <div className="p-3 bg-cream-50 rounded-2xl border border-cream-200 space-y-1 font-mono text-[11px]">
+              <div><strong>features[0]:</strong> Plant Type (0 = Aloe Vera, 1 = Pothos)</div>
+              <div><strong>features[1]:</strong> Soil moisture percentage (0-100%)</div>
+              <div><strong>features[2]:</strong> Temperature in Celsius (°C)</div>
+              <div><strong>features[3]:</strong> Air humidity percentage (0-100%)</div>
+              <div><strong>features[4]:</strong> LDR ADC reading (0-4095)</div>
+              <div className="pt-1 border-t border-cream-200 font-sans">
+                <strong>Output Classes:</strong> <code>0 = High stress</code>, <code>1 = Moderate stress</code>, <code>2 = Suitable</code>
+              </div>
+              <div className="font-sans text-forest-800 font-bold">
+                Validation Accuracy: 97.56% on 4,500 training rows
+              </div>
             </div>
           </div>
         )}
@@ -388,37 +378,33 @@ export const ScreenSettings: React.FC = () => {
         {activeInfoTab === 'protocol' && (
           <div className="space-y-2 text-xs">
             <p className="text-stone-600 leading-snug">
-              The STM32 transmits a JSON-formatted ASCII frame delimited by <code>\r\n</code> over UART at 9600 or 115200 baud:
+              Transmitted ASCII JSON frames over Bluetooth UART at 9600 baud, delimited by <code>\r\n</code>:
             </p>
             <pre className="p-3 bg-stone-900 text-emerald-300 rounded-2xl font-mono text-[11px] overflow-x-auto leading-relaxed">
 {`{
-  "moisture": 42,
-  "temperature": 30.0,
-  "humidity": 48,
-  "light": 750,
-  "condition": "Needs Water"
+  "moisture": 49.1,
+  "temperature": 33.4,
+  "humidity": 48.8,
+  "light": 2161,
+  "condition": "Moderate Stress"
 }`}
             </pre>
-            <p className="text-[11px] text-stone-500">
-              Valid conditions: <code>"Healthy"</code>, <code>"Needs Water"</code>, <code>"Too Dry"</code>, <code>"Poor Environment"</code>.
-            </p>
           </div>
         )}
 
-        {activeInfoTab === 'hardware' && (
+        {activeInfoTab === 'about' && (
           <div className="text-xs text-stone-600 space-y-1.5">
             <div className="p-3 bg-cream-50 rounded-2xl border border-cream-200 text-[11px] space-y-1">
-              <div><strong>PA0 (ADC1_IN0):</strong> Analog Soil Moisture Sensor</div>
-              <div><strong>PA1 (ADC1_IN1):</strong> Light Dependent Resistor (LDR)</div>
-              <div><strong>PA2 / PA3 (USART2 TX/RX):</strong> HC-05 Bluetooth Module</div>
-              <div><strong>PB6 / PB7 (I2C1 SCL/SDA):</strong> SSD1306 0.96" OLED Display</div>
-              <div><strong>PA4 (GPIO):</strong> DHT11 Temperature & Humidity Data Pin</div>
+              <div><strong>PA0 (ADC1_IN0):</strong> Analog Soil Moisture Probe</div>
+              <div><strong>PA1 (ADC1_IN1):</strong> LDR Light Sensor (0-4095)</div>
+              <div><strong>PA2/PA3 (USART2):</strong> HC-05 / HM-10 Bluetooth Module</div>
+              <div><strong>PA4 (GPIO):</strong> DHT11 Temperature & Air Humidity Sensor</div>
+              <div><strong>PB6/PB7 (I2C1):</strong> SSD1306 0.96" OLED Display</div>
             </div>
           </div>
         )}
       </div>
 
-      {/* Modals */}
       <SerialTerminalModal isOpen={isTerminalOpen} onClose={() => setIsTerminalOpen(false)} />
       <EditPlantModal isOpen={isEditModalOpen} onClose={() => setIsEditModalOpen(false)} />
     </div>

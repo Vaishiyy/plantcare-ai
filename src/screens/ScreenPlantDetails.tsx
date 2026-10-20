@@ -9,8 +9,6 @@ import {
   CloudRain,
   Sun,
   Info,
-  CheckCircle2,
-  AlertCircle,
   HelpCircle,
 } from 'lucide-react';
 import { analyzeTelemetry } from '../services/ml/mlInference';
@@ -22,13 +20,12 @@ export const ScreenPlantDetails: React.FC = () => {
     profiles,
     selectProfile,
     currentReading,
-    isDemoMode,
     tempUnit,
   } = usePlant();
 
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
 
-  const diagnostic = analyzeTelemetry(currentReading, activeProfile.thresholds);
+  const diagnostic = analyzeTelemetry(currentReading, activeProfile.thresholds, activeProfile.plantCode);
 
   const displayTemp = tempUnit === 'F'
     ? parseFloat(((currentReading.temperature * 9) / 5 + 32).toFixed(1))
@@ -42,7 +39,6 @@ export const ScreenPlantDetails: React.FC = () => {
     ? Math.round((activeProfile.thresholds.tempMax * 9) / 5 + 32)
     : activeProfile.thresholds.tempMax;
 
-  // Gauge helper: calculates percentage position inside min/max target range
   const calculateGaugePct = (val: number, min: number, max: number) => {
     const range = max - min;
     const lowerBound = min - range * 0.4;
@@ -53,9 +49,8 @@ export const ScreenPlantDetails: React.FC = () => {
 
   return (
     <div className="space-y-4 pb-20">
-      {/* Plant Profile Header with Picture & Taxonomy */}
+      {/* Plant Profile Header */}
       <div className="bg-white rounded-3xl border border-cream-200 overflow-hidden shadow-card">
-        {/* Plant Image / Banner */}
         <div className="relative h-48 w-full bg-cream-200 overflow-hidden">
           <img
             src={activeProfile.imageUrl}
@@ -64,7 +59,6 @@ export const ScreenPlantDetails: React.FC = () => {
           />
           <div className="absolute inset-0 bg-gradient-to-t from-forest-950/80 via-transparent to-black/20" />
 
-          {/* Plant Profiles Quick Switcher overlay */}
           <div className="absolute top-3 right-3 flex items-center gap-1.5">
             <button
               onClick={() => setIsEditModalOpen(true)}
@@ -75,10 +69,9 @@ export const ScreenPlantDetails: React.FC = () => {
             </button>
           </div>
 
-          {/* Profile Name & Botanical Name overlay */}
           <div className="absolute bottom-3 left-4 right-4 text-white">
             <span className="text-[10px] font-semibold uppercase tracking-wider text-sage-200">
-              Active Monitored Specimen
+              Active Specimen #{activeProfile.plantCode} (ML Target)
             </span>
             <h2 className="text-xl font-display font-bold leading-tight">
               {activeProfile.name}
@@ -93,25 +86,25 @@ export const ScreenPlantDetails: React.FC = () => {
         <div className="p-4 grid grid-cols-3 gap-2 border-b border-cream-200 text-center bg-cream-50/50">
           <div className="p-2">
             <span className="text-[10px] text-stone-500 uppercase tracking-wider block font-semibold">
-              Care Level
+              ML Feature Code
             </span>
             <span className="text-xs font-bold text-forest-800">
-              {activeProfile.careLevel}
+              features[0] = {activeProfile.plantCode}
             </span>
           </div>
 
           <div className="p-2 border-x border-cream-200">
             <span className="text-[10px] text-stone-500 uppercase tracking-wider block font-semibold">
-              Light Needs
+              Care Tolerance
             </span>
             <span className="text-xs font-bold text-forest-800 truncate block">
-              {activeProfile.sunlightRequirement}
+              {activeProfile.careLevel}
             </span>
           </div>
 
           <div className="p-2">
             <span className="text-[10px] text-stone-500 uppercase tracking-wider block font-semibold">
-              Date Added
+              Added
             </span>
             <span className="text-xs font-bold text-forest-800">
               {new Date(activeProfile.dateAdded).toLocaleDateString([], { month: 'short', year: 'numeric' })}
@@ -122,31 +115,31 @@ export const ScreenPlantDetails: React.FC = () => {
         {/* Species selector carousel pills */}
         <div className="px-4 py-2.5 flex items-center gap-1.5 overflow-x-auto bg-white">
           <span className="text-[11px] font-medium text-stone-400 whitespace-nowrap mr-1">
-            Specimens:
+            Dataset Plants:
           </span>
           {profiles.map((p) => (
             <button
               key={p.id}
               onClick={() => selectProfile(p.id)}
-              className={`px-2.5 py-1 rounded-full text-xs font-medium whitespace-nowrap transition-all ${
+              className={`px-3 py-1 rounded-full text-xs font-medium whitespace-nowrap transition-all ${
                 p.id === activeProfile.id
                   ? 'bg-forest-600 text-white font-semibold shadow-soft'
                   : 'bg-cream-100 text-stone-600 hover:bg-cream-200'
               }`}
             >
-              {p.name}
+              {p.name} ({p.speciesKey})
             </button>
           ))}
         </div>
       </div>
 
-      {/* Distinction Box: Measured Sensor Values vs Model-Generated Recommendations */}
+      {/* Model Diagnostic Explanation */}
       <div className="bg-white rounded-3xl border border-cream-200 p-4 shadow-card space-y-3">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-1.5">
             <Info className="w-4 h-4 text-forest-600" />
             <h3 className="text-xs font-bold uppercase tracking-wider text-forest-900">
-              Diagnostic Explanation
+              Decision Tree Diagnostic
             </h3>
           </div>
           <span className="text-[10px] px-2 py-0.5 rounded-full bg-forest-50 border border-forest-200 text-forest-700 font-semibold">
@@ -154,13 +147,12 @@ export const ScreenPlantDetails: React.FC = () => {
           </span>
         </div>
 
-        {/* Explanation text */}
         <div className={`p-3.5 rounded-2xl border ${diagnostic.color.bg} ${diagnostic.color.border}`}>
           <div className="flex items-start gap-2.5">
             <HelpCircle className="w-4 h-4 text-forest-700 shrink-0 mt-0.5" />
             <div className="text-xs space-y-1">
               <span className="font-bold text-forest-900 block">
-                Why was "{diagnostic.condition}" predicted?
+                Why was Class {diagnostic.mlClassCode} ({diagnostic.condition}) predicted?
               </span>
               <p className="text-stone-700 leading-relaxed">
                 {diagnostic.explanation}
@@ -169,14 +161,13 @@ export const ScreenPlantDetails: React.FC = () => {
           </div>
         </div>
 
-        {/* Notice on Measured vs Recommendation */}
         <div className="p-3 bg-cream-50 rounded-2xl border border-cream-200/80 text-[11px] space-y-1 text-stone-600">
           <div className="flex items-center gap-1.5 text-forest-800 font-semibold text-xs">
             <ShieldCheck className="w-3.5 h-3.5 text-forest-600" />
-            <span>Telemetry Integrity Notice</span>
+            <span>Dataset Ground Truth Reference</span>
           </div>
           <p className="leading-snug">
-            Sensor readings below represent raw physical telemetry recorded by the STM32 ADC & DHT11. Health conditions and recommended actions are generated by the on-chip classification model and should be verified with physical tactile soil inspection.
+            Current readings are tested against the 4,500 physical records trained in <code>plant_suitability_model.c</code>. Features reflect exact microcontroller ADC values.
           </p>
         </div>
       </div>
@@ -186,10 +177,10 @@ export const ScreenPlantDetails: React.FC = () => {
         <div className="flex items-center justify-between">
           <div>
             <h3 className="text-sm font-bold font-display text-forest-900">
-              Species Environmental Ranges
+              Species Environmental Envelope
             </h3>
             <span className="text-[11px] text-stone-500">
-              Live reading vs {activeProfile.name}'s safe envelope
+              Live reading vs empirical thresholds for {activeProfile.name}
             </span>
           </div>
 
@@ -201,7 +192,7 @@ export const ScreenPlantDetails: React.FC = () => {
           </button>
         </div>
 
-        {/* 1. Soil Moisture Gauge */}
+        {/* 1. Soil Moisture */}
         <div className="p-3 bg-cream-50/60 rounded-2xl border border-cream-200 space-y-2">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
@@ -209,7 +200,7 @@ export const ScreenPlantDetails: React.FC = () => {
                 <Droplets className="w-4 h-4" />
               </div>
               <div>
-                <span className="text-xs font-bold text-stone-800">Soil Moisture</span>
+                <span className="text-xs font-bold text-stone-800">Soil Moisture (features[1])</span>
                 <span className="text-[10px] text-stone-400 block">
                   Target: {activeProfile.thresholds.moistureMin}% – {activeProfile.thresholds.moistureMax}%
                 </span>
@@ -225,20 +216,19 @@ export const ScreenPlantDetails: React.FC = () => {
                   currentReading.moisture < activeProfile.thresholds.moistureMin
                     ? 'text-amber-700'
                     : currentReading.moisture > activeProfile.thresholds.moistureMax
-                    ? 'text-blue-700'
+                    ? 'text-rose-700'
                     : 'text-emerald-700'
                 }`}
               >
                 {currentReading.moisture < activeProfile.thresholds.moistureMin
-                  ? 'Below Ideal'
+                  ? 'Dry Soil'
                   : currentReading.moisture > activeProfile.thresholds.moistureMax
-                  ? 'Above Ideal'
+                  ? 'Overwatered'
                   : 'In Range'}
               </span>
             </div>
           </div>
 
-          {/* Visual Range Bar */}
           <div className="relative h-2 bg-stone-200 rounded-full overflow-hidden">
             <div
               className="absolute top-0 bottom-0 bg-emerald-400 opacity-60 rounded-full"
@@ -247,7 +237,6 @@ export const ScreenPlantDetails: React.FC = () => {
                 width: `${activeProfile.thresholds.moistureMax - activeProfile.thresholds.moistureMin}%`,
               }}
             />
-            {/* Live indicator dot */}
             <div
               className="absolute top-1/2 -translate-y-1/2 w-3.5 h-3.5 rounded-full bg-forest-800 ring-2 ring-white shadow-sm transition-all duration-500"
               style={{ left: `calc(${currentReading.moisture}% - 7px)` }}
@@ -255,7 +244,7 @@ export const ScreenPlantDetails: React.FC = () => {
           </div>
         </div>
 
-        {/* 2. Temperature Gauge */}
+        {/* 2. Temperature */}
         <div className="p-3 bg-cream-50/60 rounded-2xl border border-cream-200 space-y-2">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
@@ -263,7 +252,7 @@ export const ScreenPlantDetails: React.FC = () => {
                 <Thermometer className="w-4 h-4" />
               </div>
               <div>
-                <span className="text-xs font-bold text-stone-800">Temperature</span>
+                <span className="text-xs font-bold text-stone-800">Temperature (features[2])</span>
                 <span className="text-[10px] text-stone-400 block">
                   Target: {displayTempMin}° – {displayTempMax}°{tempUnit}
                 </span>
@@ -306,7 +295,7 @@ export const ScreenPlantDetails: React.FC = () => {
           </div>
         </div>
 
-        {/* 3. Humidity Gauge */}
+        {/* 3. Humidity */}
         <div className="p-3 bg-cream-50/60 rounded-2xl border border-cream-200 space-y-2">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
@@ -314,7 +303,7 @@ export const ScreenPlantDetails: React.FC = () => {
                 <CloudRain className="w-4 h-4" />
               </div>
               <div>
-                <span className="text-xs font-bold text-stone-800">Humidity</span>
+                <span className="text-xs font-bold text-stone-800">Air Humidity (features[3])</span>
                 <span className="text-[10px] text-stone-400 block">
                   Target: {activeProfile.thresholds.humidityMin}% – {activeProfile.thresholds.humidityMax}%
                 </span>
@@ -337,7 +326,7 @@ export const ScreenPlantDetails: React.FC = () => {
                 {currentReading.humidity < activeProfile.thresholds.humidityMin
                   ? 'Dry Air'
                   : currentReading.humidity > activeProfile.thresholds.humidityMax
-                  ? 'High Moisture'
+                  ? 'High Humidity'
                   : 'In Range'}
               </span>
             </div>
@@ -358,7 +347,7 @@ export const ScreenPlantDetails: React.FC = () => {
           </div>
         </div>
 
-        {/* 4. Light Intensity Gauge */}
+        {/* 4. Light ADC */}
         <div className="p-3 bg-cream-50/60 rounded-2xl border border-cream-200 space-y-2">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
@@ -366,16 +355,16 @@ export const ScreenPlantDetails: React.FC = () => {
                 <Sun className="w-4 h-4" />
               </div>
               <div>
-                <span className="text-xs font-bold text-stone-800">Light Exposure</span>
+                <span className="text-xs font-bold text-stone-800">LDR Reading (features[4])</span>
                 <span className="text-[10px] text-stone-400 block">
-                  Target: {activeProfile.thresholds.lightMin} – {activeProfile.thresholds.lightMax} lux
+                  Target: {activeProfile.thresholds.lightMin} – {activeProfile.thresholds.lightMax} ADC
                 </span>
               </div>
             </div>
 
             <div className="text-right">
               <span className="text-base font-bold font-display text-forest-900">
-                {currentReading.light} lux
+                {currentReading.light}
               </span>
               <span
                 className={`text-[10px] font-semibold block ${
@@ -389,7 +378,7 @@ export const ScreenPlantDetails: React.FC = () => {
                 {currentReading.light < activeProfile.thresholds.lightMin
                   ? 'Low Light'
                   : currentReading.light > activeProfile.thresholds.lightMax
-                  ? 'Direct Sunlight'
+                  ? 'High Light'
                   : 'Optimal'}
               </span>
             </div>
@@ -398,26 +387,25 @@ export const ScreenPlantDetails: React.FC = () => {
           <div className="relative h-2 bg-stone-200 rounded-full overflow-hidden">
             <div
               className="absolute top-0 bottom-0 bg-emerald-400 opacity-60 rounded-full"
-              style={{ left: '25%', width: '50%' }}
+              style={{
+                left: `${(activeProfile.thresholds.lightMin / 4095) * 100}%`,
+                width: `${((activeProfile.thresholds.lightMax - activeProfile.thresholds.lightMin) / 4095) * 100}%`,
+              }}
             />
             <div
               className="absolute top-1/2 -translate-y-1/2 w-3.5 h-3.5 rounded-full bg-forest-800 ring-2 ring-white shadow-sm transition-all duration-500"
               style={{
-                left: `${calculateGaugePct(
-                  currentReading.light,
-                  activeProfile.thresholds.lightMin,
-                  activeProfile.thresholds.lightMax
-                )}%`,
+                left: `${(currentReading.light / 4095) * 100}%`,
               }}
             />
           </div>
         </div>
       </div>
 
-      {/* Care Notes */}
+      {/* Notes */}
       <div className="p-4 bg-white rounded-3xl border border-cream-200 shadow-card">
         <h3 className="text-xs font-bold uppercase tracking-wider text-forest-900 mb-1">
-          Horticultural Notes
+          Horticultural Profile Notes
         </h3>
         <p className="text-xs text-stone-600 leading-relaxed">
           {activeProfile.notes}

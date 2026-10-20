@@ -12,6 +12,7 @@ import {
   Sparkles,
   RefreshCw,
   FlaskConical,
+  Database,
 } from 'lucide-react';
 import { analyzeTelemetry } from '../services/ml/mlInference';
 import { EditPlantModal } from '../components/EditPlantModal';
@@ -32,9 +33,8 @@ export const ScreenDashboard: React.FC = () => {
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
 
-  const diagnostic = analyzeTelemetry(currentReading, activeProfile.thresholds);
+  const diagnostic = analyzeTelemetry(currentReading, activeProfile.thresholds, activeProfile.plantCode);
 
-  // Sparkline history extraction
   const moistureHistory = history.map((h) => h.moisture);
   const tempHistory = history.map((h) => h.temperature);
   const humidityHistory = history.map((h) => h.humidity);
@@ -55,37 +55,39 @@ export const ScreenDashboard: React.FC = () => {
   const handleManualRefresh = () => {
     setIsRefreshing(true);
     refreshReadings();
-    setTimeout(() => setIsRefreshing(false), 600);
+    setTimeout(() => setIsRefreshing(false), 500);
   };
 
   return (
     <div className="space-y-4 pb-20">
-      {/* Prominent Overall Plant-Health Hero Card */}
+      {/* Plant-Health Hero Card with ML Model Output */}
       <div className="bg-white rounded-3xl border border-cream-200 p-5 shadow-card relative overflow-hidden">
-        {/* Soft decorative background tint */}
         <div
           className="absolute -top-12 -right-12 w-48 h-48 rounded-full blur-3xl pointer-events-none opacity-40"
           style={{
             backgroundColor:
-              currentReading.condition === 'Healthy'
+              diagnostic.mlClassCode === 2
                 ? '#52B788'
-                : currentReading.condition === 'Needs Water'
+                : diagnostic.mlClassCode === 1
                 ? '#E9C46A'
-                : currentReading.condition === 'Too Dry'
-                ? '#EA580C'
                 : '#E76F51',
           }}
         />
 
         <div className="flex items-start justify-between relative z-10 mb-4">
           <div className="space-y-1">
-            <div className="flex items-center gap-1.5">
+            <div className="flex items-center gap-1.5 flex-wrap">
               <span className="text-[11px] font-bold uppercase tracking-wider text-forest-600/80">
-                Active Classification
+                Decision Tree Output
               </span>
               <span className="text-[10px] px-2 py-0.2 rounded-full bg-forest-50 border border-forest-200 text-forest-700 font-medium">
-                STM32 TinyML
+                Class {diagnostic.mlClassCode}: {diagnostic.condition}
               </span>
+              {currentReading.datasetRowIndex !== undefined && (
+                <span className="text-[10px] px-2 py-0.2 rounded-full bg-cream-100 border border-cream-300 text-stone-600 font-mono">
+                  Row #{currentReading.datasetRowIndex}
+                </span>
+              )}
             </div>
             <h2 className="text-xl font-display font-bold text-forest-900 tracking-tight">
               {diagnostic.headline}
@@ -96,7 +98,7 @@ export const ScreenDashboard: React.FC = () => {
           </div>
 
           <HealthProgressRing
-            condition={currentReading.condition}
+            condition={diagnostic.condition}
             confidence={currentReading.confidence}
             size={105}
             strokeWidth={8}
@@ -109,12 +111,12 @@ export const ScreenDashboard: React.FC = () => {
         >
           <Sparkles className="w-4 h-4 mt-0.5 shrink-0 text-forest-700" />
           <div className="flex-1">
-            <span className="font-semibold text-forest-900 block">Recommended Action:</span>
+            <span className="font-semibold text-forest-900 block">Care Recommendation:</span>
             <span className="text-stone-700 leading-snug">{diagnostic.recommendedAction}</span>
           </div>
         </div>
 
-        {/* Buttons: View Plant Details & Connect Device */}
+        {/* Action Buttons */}
         <div className="grid grid-cols-2 gap-2.5 mt-4">
           <button
             onClick={() => setActiveScreen('plant_details')}
@@ -148,10 +150,10 @@ export const ScreenDashboard: React.FC = () => {
       <div className="flex items-center justify-between px-1">
         <div>
           <h3 className="text-sm font-bold font-display text-forest-900">
-            Real-Time Microclimate Telemetry
+            Microclimate Telemetry ({activeProfile.name})
           </h3>
           <span className="text-[11px] text-stone-500">
-            Four physical sensors streaming from STM32 ADC & GPIO
+            Real sensor features matching STM32 Decision Tree inputs
           </span>
         </div>
 
@@ -165,7 +167,7 @@ export const ScreenDashboard: React.FC = () => {
         </button>
       </div>
 
-      {/* 4 Sensor Cards */}
+      {/* 4 Sensor Cards matching dataset columns */}
       <div className="grid grid-cols-2 gap-3">
         <SensorCard
           title="Soil Moisture"
@@ -180,7 +182,7 @@ export const ScreenDashboard: React.FC = () => {
         />
 
         <SensorCard
-          title="Ambient Temp"
+          title="Temperature"
           value={displayTemp}
           unit={tempUnit === 'F' ? '°F' : '°C'}
           minTarget={displayTempMin}
@@ -192,7 +194,7 @@ export const ScreenDashboard: React.FC = () => {
         />
 
         <SensorCard
-          title="Relative Humidity"
+          title="Air Humidity"
           value={currentReading.humidity}
           unit="%"
           minTarget={activeProfile.thresholds.humidityMin}
@@ -204,9 +206,9 @@ export const ScreenDashboard: React.FC = () => {
         />
 
         <SensorCard
-          title="Light Intensity"
+          title="LDR Light"
           value={currentReading.light}
-          unit="lux"
+          unit="ADC"
           minTarget={activeProfile.thresholds.lightMin}
           maxTarget={activeProfile.thresholds.lightMax}
           icon={Sun}
@@ -216,52 +218,51 @@ export const ScreenDashboard: React.FC = () => {
         />
       </div>
 
-      {/* College Project Viva / Demo Scenarios Strip */}
-      {isDemoMode && (
-        <div className="bg-amber-50/70 border border-amber-200/80 rounded-2xl p-3.5 space-y-2">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-1.5">
-              <FlaskConical className="w-4 h-4 text-amber-700" />
-              <span className="text-xs font-bold text-amber-900 uppercase tracking-wider">
-                Evaluation Test Presets
-              </span>
-            </div>
-            <span className="text-[10px] text-amber-700 font-medium">Demo Simulator</span>
+      {/* Dataset & Viva Presets Strip */}
+      <div className="bg-amber-50/70 border border-amber-200/80 rounded-2xl p-3.5 space-y-2">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-1.5">
+            <Database className="w-4 h-4 text-amber-700" />
+            <span className="text-xs font-bold text-amber-900 uppercase tracking-wider">
+              Dataset ML Scenarios (4,500 Rows)
+            </span>
           </div>
-          <p className="text-[11px] text-amber-800 leading-snug">
-            Quickly trigger physical condition edge cases to demonstrate how the STM32 ML model classifies each plant state:
-          </p>
-
-          <div className="grid grid-cols-4 gap-1.5 pt-1">
-            <button
-              onClick={() => setScenario('ideal')}
-              className="py-1.5 px-2 rounded-xl text-[11px] font-semibold bg-white border border-emerald-300 text-emerald-800 hover:bg-emerald-50 transition-all text-center shadow-soft"
-            >
-              Healthy
-            </button>
-            <button
-              onClick={() => setScenario('needs_water')}
-              className="py-1.5 px-2 rounded-xl text-[11px] font-semibold bg-white border border-amber-300 text-amber-800 hover:bg-amber-50 transition-all text-center shadow-soft"
-            >
-              Needs Water
-            </button>
-            <button
-              onClick={() => setScenario('too_dry')}
-              className="py-1.5 px-2 rounded-xl text-[11px] font-semibold bg-white border border-orange-300 text-orange-800 hover:bg-orange-50 transition-all text-center shadow-soft"
-            >
-              Too Dry
-            </button>
-            <button
-              onClick={() => setScenario('poor_env')}
-              className="py-1.5 px-2 rounded-xl text-[11px] font-semibold bg-white border border-rose-300 text-rose-800 hover:bg-rose-50 transition-all text-center shadow-soft"
-            >
-              Poor Env
-            </button>
-          </div>
+          <span className="text-[10px] text-amber-800 font-semibold bg-white/80 px-2 py-0.5 rounded-full border border-amber-300">
+            {activeProfile.speciesKey}
+          </span>
         </div>
-      )}
+        <p className="text-[11px] text-amber-800 leading-snug">
+          Inject authentic records from the training dataset directly into the STM32 Decision Tree model:
+        </p>
 
-      {/* Modal */}
+        <div className="grid grid-cols-4 gap-1.5 pt-1">
+          <button
+            onClick={() => setScenario('dataset_suitable')}
+            className="py-1.5 px-2 rounded-xl text-[11px] font-semibold bg-white border border-emerald-300 text-emerald-800 hover:bg-emerald-50 transition-all text-center shadow-soft"
+          >
+            Suitable (2)
+          </button>
+          <button
+            onClick={() => setScenario('dataset_moderate')}
+            className="py-1.5 px-2 rounded-xl text-[11px] font-semibold bg-white border border-amber-300 text-amber-800 hover:bg-amber-50 transition-all text-center shadow-soft"
+          >
+            Moderate (1)
+          </button>
+          <button
+            onClick={() => setScenario('dataset_high_stress')}
+            className="py-1.5 px-2 rounded-xl text-[11px] font-semibold bg-white border border-rose-300 text-rose-800 hover:bg-rose-50 transition-all text-center shadow-soft"
+          >
+            High Stress (0)
+          </button>
+          <button
+            onClick={() => setScenario('dataset_stream')}
+            className="py-1.5 px-2 rounded-xl text-[11px] font-semibold bg-forest-700 border border-forest-800 text-white hover:bg-forest-800 transition-all text-center shadow-soft"
+          >
+            Next Row ▶
+          </button>
+        </div>
+      </div>
+
       <EditPlantModal isOpen={isEditOpen} onClose={() => setIsEditOpen(false)} />
     </div>
   );

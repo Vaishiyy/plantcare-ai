@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { usePlant } from '../context/PlantContext';
-import { X, Terminal, Send, Trash2, CheckCircle2 } from 'lucide-react';
+import { X, Terminal, Send, CheckCircle2 } from 'lucide-react';
 
 interface SerialTerminalModalProps {
   isOpen: boolean;
@@ -8,9 +8,9 @@ interface SerialTerminalModalProps {
 }
 
 export const SerialTerminalModal: React.FC<SerialTerminalModalProps> = ({ isOpen, onClose }) => {
-  const { serialLogs, injectManualPacket, connectionProtocol, connectionState } = usePlant();
+  const { serialLogs, injectManualPacket, connectionProtocol, connectionState, activeProfile } = usePlant();
   const [customInput, setCustomInput] = useState<string>(
-    '{"moisture": 42, "temperature": 30.0, "humidity": 48, "light": 750, "condition": "Needs Water"}'
+    '{"moisture": 25.5, "temperature": 24.5, "humidity": 50.2, "light": 3200, "condition": "Suitable"}'
   );
   const [injectResult, setInjectResult] = useState<string | null>(null);
 
@@ -20,7 +20,7 @@ export const SerialTerminalModal: React.FC<SerialTerminalModalProps> = ({ isOpen
     if (!customInput.trim()) return;
     const ok = injectManualPacket(customInput.trim());
     if (ok) {
-      setInjectResult('Packet parsed & processed successfully!');
+      setInjectResult('Packet parsed & Decision Tree executed!');
     } else {
       setInjectResult('Parse error: ensure payload matches JSON format.');
     }
@@ -39,7 +39,7 @@ export const SerialTerminalModal: React.FC<SerialTerminalModalProps> = ({ isOpen
           <div className="flex items-center gap-2">
             <Terminal className="w-4 h-4 text-emerald-400" />
             <span className="text-xs font-mono font-semibold text-stone-200">
-              STM32 UART Telemetry Monitor
+              STM32 UART Telemetry Monitor ({activeProfile.name})
             </span>
           </div>
 
@@ -56,40 +56,40 @@ export const SerialTerminalModal: React.FC<SerialTerminalModalProps> = ({ isOpen
           </div>
         </div>
 
-        {/* Preset sample buttons */}
+        {/* Preset sample buttons matching the user's dataset */}
         <div className="px-3 py-2 bg-stone-900/90 border-b border-stone-800 flex items-center gap-1.5 overflow-x-auto text-[11px] font-mono">
-          <span className="text-stone-400 text-[10px] whitespace-nowrap">Load Preset:</span>
+          <span className="text-stone-400 text-[10px] whitespace-nowrap">Model Presets:</span>
           <button
             onClick={() =>
-              loadPreset('{"moisture": 62, "temperature": 23.5, "humidity": 55, "light": 820, "condition": "Healthy"}')
+              loadPreset('{"moisture": 25.0, "temperature": 24.5, "humidity": 48.0, "light": 3400, "condition": "Suitable"}')
             }
             className="px-2 py-1 rounded bg-stone-800 hover:bg-stone-700 text-emerald-300 whitespace-nowrap"
           >
-            Healthy
+            Aloe Suitable (2)
           </button>
           <button
             onClick={() =>
-              loadPreset('{"moisture": 32, "temperature": 24.0, "humidity": 45, "light": 700, "condition": "Needs Water"}')
+              loadPreset('{"moisture": 52.0, "temperature": 22.5, "humidity": 65.0, "light": 1800, "condition": "Suitable"}')
+            }
+            className="px-2 py-1 rounded bg-stone-800 hover:bg-stone-700 text-emerald-300 whitespace-nowrap"
+          >
+            Pothos Suitable (2)
+          </button>
+          <button
+            onClick={() =>
+              loadPreset('{"moisture": 49.0, "temperature": 33.4, "humidity": 48.8, "light": 2161, "condition": "Moderate Stress"}')
             }
             className="px-2 py-1 rounded bg-stone-800 hover:bg-stone-700 text-amber-300 whitespace-nowrap"
           >
-            Needs Water
+            Moderate (1)
           </button>
           <button
             onClick={() =>
-              loadPreset('{"moisture": 14, "temperature": 28.5, "humidity": 32, "light": 900, "condition": "Too Dry"}')
-            }
-            className="px-2 py-1 rounded bg-stone-800 hover:bg-stone-700 text-orange-300 whitespace-nowrap"
-          >
-            Too Dry
-          </button>
-          <button
-            onClick={() =>
-              loadPreset('{"moisture": 50, "temperature": 34.8, "humidity": 88, "light": 120, "condition": "Poor Environment"}')
+              loadPreset('{"moisture": 98.8, "temperature": 33.0, "humidity": 74.4, "light": 843, "condition": "High Stress"}')
             }
             className="px-2 py-1 rounded bg-stone-800 hover:bg-stone-700 text-rose-300 whitespace-nowrap"
           >
-            Poor Env
+            High Stress (0)
           </button>
         </div>
 

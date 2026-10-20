@@ -11,7 +11,6 @@ import {
   AlertTriangle,
   Clock,
   Sparkles,
-  Radio,
 } from 'lucide-react';
 import { analyzeTelemetry } from '../services/ml/mlInference';
 
@@ -21,7 +20,6 @@ export const ScreenLiveMonitoring: React.FC = () => {
     history,
     activeProfile,
     connectionState,
-    connectedDeviceName,
     isDemoMode,
     isStale,
     lastUpdatedStr,
@@ -34,9 +32,8 @@ export const ScreenLiveMonitoring: React.FC = () => {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isTerminalOpen, setIsTerminalOpen] = useState(false);
 
-  const diagnostic = analyzeTelemetry(currentReading, activeProfile.thresholds);
+  const diagnostic = analyzeTelemetry(currentReading, activeProfile.thresholds, activeProfile.plantCode);
 
-  // Live window: most recent 20 data points
   const liveWindowData = history.slice(-20);
 
   const handleManualRefresh = () => {
@@ -71,7 +68,7 @@ export const ScreenLiveMonitoring: React.FC = () => {
               <div className="flex items-center gap-2 text-[11px] text-stone-500">
                 <span className="flex items-center gap-1">
                   <Clock className="w-3 h-3 text-stone-400" />
-                  Last Frame: {lastUpdatedStr}
+                  Last Packet: {lastUpdatedStr}
                 </span>
                 <span>•</span>
                 <span>Interval: {refreshInterval / 1000}s</span>
@@ -157,7 +154,7 @@ export const ScreenLiveMonitoring: React.FC = () => {
 
           <div className="p-2.5 rounded-2xl bg-yellow-50/80 border border-yellow-100">
             <span className="text-[10px] text-yellow-700 font-semibold block uppercase">
-              Light
+              LDR ADC
             </span>
             <span className="text-lg font-bold font-display text-yellow-900 leading-tight">
               {currentReading.light}
@@ -165,14 +162,14 @@ export const ScreenLiveMonitoring: React.FC = () => {
           </div>
         </div>
 
-        {/* Action Buttons: Refresh & Check Plant Health */}
+        {/* Action Buttons */}
         <div className="grid grid-cols-2 gap-2.5 pt-1">
           <button
             onClick={handleManualRefresh}
             className="py-2.5 px-3 rounded-2xl bg-cream-100 hover:bg-cream-200 text-forest-900 font-semibold text-xs flex items-center justify-center gap-2 border border-cream-300 transition-all active:scale-[0.98]"
           >
             <RefreshCw className={`w-3.5 h-3.5 ${isRefreshing ? 'animate-spin' : ''}`} />
-            <span>Refresh Readings</span>
+            <span>Step Next Record</span>
           </button>
 
           <button
@@ -180,7 +177,7 @@ export const ScreenLiveMonitoring: React.FC = () => {
             className="py-2.5 px-3 rounded-2xl bg-forest-600 hover:bg-forest-700 text-white font-semibold text-xs flex items-center justify-center gap-2 shadow-soft transition-all active:scale-[0.98]"
           >
             <BrainCircuit className="w-3.5 h-3.5 text-sage-200" />
-            <span>Check Plant Health</span>
+            <span>Run Decision Tree</span>
           </button>
         </div>
       </div>
@@ -191,14 +188,13 @@ export const ScreenLiveMonitoring: React.FC = () => {
           <div className="flex items-center gap-1.5">
             <Activity className="w-4 h-4 text-forest-600" />
             <h3 className="text-xs font-bold uppercase tracking-wider text-forest-900">
-              Live Sensor Trajectory (20 samples)
+              Sensor Stream Graph (20 samples)
             </h3>
           </div>
 
-          {/* Polling Interval Selector */}
           <div className="flex items-center gap-1 text-[11px] text-stone-500">
             <span className="text-[10px]">Rate:</span>
-            {[2000, 5000, 10000].map((ms) => (
+            {[2000, 3000, 5000].map((ms) => (
               <button
                 key={ms}
                 onClick={() => setRefreshInterval(ms)}
@@ -228,11 +224,11 @@ export const ScreenLiveMonitoring: React.FC = () => {
           <div className="flex items-center gap-1.5">
             <Sparkles className="w-4 h-4 text-forest-700" />
             <span className="text-xs font-bold uppercase tracking-wider text-forest-900">
-              Live On-Chip Classification
+              STM32 ML Prediction: {diagnostic.condition}
             </span>
           </div>
           <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold ${diagnostic.color.badge}`}>
-            {diagnostic.condition}
+            Class {diagnostic.mlClassCode}
           </span>
         </div>
 
@@ -245,7 +241,6 @@ export const ScreenLiveMonitoring: React.FC = () => {
         </div>
       </div>
 
-      {/* Raw UART Serial Modal */}
       <SerialTerminalModal isOpen={isTerminalOpen} onClose={() => setIsTerminalOpen(false)} />
     </div>
   );

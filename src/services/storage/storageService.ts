@@ -2,84 +2,48 @@ import { AlertItem, AlertPreferences, PlantProfile, SensorReading } from '../../
 
 export const DEFAULT_PLANT_PROFILES: PlantProfile[] = [
   {
-    id: 'monstera-deliciosa',
-    name: 'Monty the Monstera',
-    species: 'Monstera Deliciosa (Swiss Cheese Plant)',
-    dateAdded: '2025-09-15',
+    id: 'aloe-vera',
+    speciesKey: 'aloe_vera',
+    plantCode: 0,
+    name: 'Vera the Aloe',
+    species: 'Aloe barbadensis miller (Aloe Vera)',
+    dateAdded: '2025-08-12',
+    imageUrl: 'https://images.unsplash.com/photo-1596547609652-9cf5d8d76921?auto=format&fit=crop&w=800&q=80',
+    careLevel: 'Easy',
+    sunlightRequirement: 'Direct Sunlight',
+    thresholds: {
+      moistureMin: 10,
+      moistureMax: 35,
+      tempMin: 18.0,
+      tempMax: 32.0,
+      humidityMin: 30,
+      humidityMax: 60,
+      lightMin: 2500,
+      lightMax: 4095,
+    },
+    notes: 'Succulent plant from the ML training dataset. Thrives in dry, well-draining soil and high light (LDR 2500-4095). High moisture triggers severe root stress.',
+  },
+  {
+    id: 'golden-pothos',
+    speciesKey: 'pothos',
+    plantCode: 1,
+    name: 'Perry the Pothos',
+    species: 'Epipremnum aureum (Golden Pothos)',
+    dateAdded: '2025-10-05',
     imageUrl: 'https://images.unsplash.com/photo-1614594975525-e45190c55d0b?auto=format&fit=crop&w=800&q=80',
     careLevel: 'Moderate',
     sunlightRequirement: 'Bright Indirect',
     thresholds: {
       moistureMin: 35,
-      moistureMax: 70,
-      tempMin: 18.0,
-      tempMax: 29.0,
-      humidityMin: 50,
-      humidityMax: 80,
-      lightMin: 400,
-      lightMax: 1200,
-    },
-    notes: 'Likes well-draining soil and misting during dry winters. Sensitive to cold air drafts.',
-  },
-  {
-    id: 'fiddle-leaf-fig',
-    name: 'Fiona the Fiddle',
-    species: 'Ficus Lyrata (Fiddle Leaf Fig)',
-    dateAdded: '2025-11-02',
-    imageUrl: 'https://images.unsplash.com/photo-1545241047-6083a3684587?auto=format&fit=crop&w=800&q=80',
-    careLevel: 'Demanding',
-    sunlightRequirement: 'Bright Indirect',
-    thresholds: {
-      moistureMin: 40,
       moistureMax: 65,
-      tempMin: 19.0,
-      tempMax: 27.0,
-      humidityMin: 45,
-      humidityMax: 75,
-      lightMin: 600,
-      lightMax: 1500,
-    },
-    notes: 'Prone to root rot if overwatered. Requires consistent bright spot without frequent repositioning.',
-  },
-  {
-    id: 'snake-plant',
-    name: 'Sammy the Snake',
-    species: 'Sansevieria Trifasciata',
-    dateAdded: '2026-01-10',
-    imageUrl: 'https://images.unsplash.com/photo-1593482892290-f54927ae1bf6?auto=format&fit=crop&w=800&q=80',
-    careLevel: 'Easy',
-    sunlightRequirement: 'Low Light',
-    thresholds: {
-      moistureMin: 18,
-      moistureMax: 50,
-      tempMin: 15.0,
-      tempMax: 32.0,
-      humidityMin: 30,
-      humidityMax: 70,
-      lightMin: 150,
-      lightMax: 900,
-    },
-    notes: 'Extremely drought-tolerant. Only water when soil is almost completely dry to touch.',
-  },
-  {
-    id: 'sweet-basil',
-    name: 'Basilico',
-    species: 'Ocimum Basilicum (Sweet Basil)',
-    dateAdded: '2026-03-01',
-    imageUrl: 'https://images.unsplash.com/photo-1608686207856-001b95cf60ca?auto=format&fit=crop&w=800&q=80',
-    careLevel: 'Moderate',
-    sunlightRequirement: 'Direct Sunlight',
-    thresholds: {
-      moistureMin: 45,
-      moistureMax: 75,
-      tempMin: 20.0,
+      tempMin: 18.0,
       tempMax: 30.0,
       humidityMin: 40,
-      humidityMax: 70,
-      lightMin: 700,
-      lightMax: 2000,
+      humidityMax: 75,
+      lightMin: 1000,
+      lightMax: 3000,
     },
-    notes: 'Fast transpiration rate. Requires steady moisture and high light exposure.',
+    notes: 'Tropical vine from the ML training dataset. Requires steady moderate moisture (35-65%) and filtered ambient light (LDR 1000-3000). Highly sensitive to cold chill.',
   },
 ];
 
@@ -94,14 +58,14 @@ export const DEFAULT_ALERT_PREFS: AlertPreferences = {
 };
 
 const STORAGE_KEYS = {
-  PROFILES: 'plantcare_profiles_v1',
-  ACTIVE_PROFILE_ID: 'plantcare_active_id_v1',
-  TELEMETRY_HISTORY: 'plantcare_telemetry_history_v1',
-  ALERTS: 'plantcare_alerts_v1',
-  ALERT_PREFS: 'plantcare_alert_prefs_v1',
-  DEMO_MODE: 'plantcare_demo_mode_v1',
-  REFRESH_INTERVAL: 'plantcare_refresh_interval_v1',
-  TEMP_UNIT: 'plantcare_temp_unit_v1',
+  PROFILES: 'plantcare_profiles_v2',
+  ACTIVE_PROFILE_ID: 'plantcare_active_id_v2',
+  TELEMETRY_HISTORY: 'plantcare_telemetry_history_v2',
+  ALERTS: 'plantcare_alerts_v2',
+  ALERT_PREFS: 'plantcare_alert_prefs_v2',
+  DEMO_MODE: 'plantcare_demo_mode_v2',
+  REFRESH_INTERVAL: 'plantcare_refresh_interval_v2',
+  TEMP_UNIT: 'plantcare_temp_unit_v2',
 };
 
 export const StorageService = {
@@ -161,7 +125,6 @@ export const StorageService = {
 
   saveAlerts(alerts: AlertItem[]): void {
     try {
-      // Keep up to 100 recent alerts
       localStorage.setItem(STORAGE_KEYS.ALERTS, JSON.stringify(alerts.slice(0, 100)));
     } catch (e) {
       console.error('Failed to save alerts', e);
@@ -180,7 +143,6 @@ export const StorageService = {
 
   saveTelemetryHistory(history: SensorReading[]): void {
     try {
-      // Store up to 300 recent samples to avoid exceeding quota
       localStorage.setItem(STORAGE_KEYS.TELEMETRY_HISTORY, JSON.stringify(history.slice(-300)));
     } catch (e) {
       console.error('Failed to save telemetry history', e);
@@ -189,7 +151,7 @@ export const StorageService = {
 
   getDemoMode(): boolean {
     const val = localStorage.getItem(STORAGE_KEYS.DEMO_MODE);
-    return val === null ? true : val === 'true'; // Default to true so app is immediately interactive
+    return val === null ? true : val === 'true';
   },
 
   saveDemoMode(enabled: boolean): void {
@@ -198,7 +160,7 @@ export const StorageService = {
 
   getRefreshInterval(): number {
     const val = localStorage.getItem(STORAGE_KEYS.REFRESH_INTERVAL);
-    return val ? parseInt(val, 10) : 3000; // default 3s
+    return val ? parseInt(val, 10) : 3000;
   },
 
   saveRefreshInterval(ms: number): void {
@@ -213,9 +175,6 @@ export const StorageService = {
     localStorage.setItem(STORAGE_KEYS.TEMP_UNIT, unit);
   },
 
-  /**
-   * Generates and downloads a CSV export of sensor readings
-   */
   exportTelemetryToCsv(history: SensorReading[], plantName: string): boolean {
     if (!history || history.length === 0) return false;
 
@@ -224,17 +183,18 @@ export const StorageService = {
       'Date & Time (ISO)',
       'Soil Moisture (%)',
       'Temperature (°C)',
-      'Humidity (%)',
-      'Light Intensity (lux)',
-      'ML Condition',
-      'Confidence',
+      'Air Humidity (%)',
+      'LDR Light (ADC)',
+      'Suitability Class',
+      'ML Code',
+      'Condition',
+      'Dataset Row Index',
       'Data Source',
     ];
 
     const rows = history.map((item) => {
       const dateIso = new Date(item.timestamp).toISOString();
-      const confStr = item.confidence !== undefined ? (item.confidence * 100).toFixed(1) + '%' : 'N/A';
-      const source = item.isSynthetic ? 'Demo Simulation' : 'STM32 Hardware Telemetry';
+      const source = item.isSynthetic ? 'Dataset Simulation' : 'STM32 Hardware Telemetry';
 
       return [
         item.timestamp,
@@ -243,8 +203,10 @@ export const StorageService = {
         item.temperature.toFixed(1),
         item.humidity,
         item.light,
+        `"${item.suitabilityClass}"`,
+        item.mlClassCode,
         `"${item.condition}"`,
-        `"${confStr}"`,
+        item.datasetRowIndex ?? 'N/A',
         `"${source}"`,
       ].join(',');
     });
@@ -255,7 +217,7 @@ export const StorageService = {
     const link = document.createElement('a');
 
     const cleanPlantName = plantName.replace(/[^a-zA-Z0-9_-]/g, '_');
-    const filename = `PlantCare_Telemetry_${cleanPlantName}_${new Date().toISOString().slice(0, 10)}.csv`;
+    const filename = `PlantCare_Dataset_Export_${cleanPlantName}_${new Date().toISOString().slice(0, 10)}.csv`;
 
     link.setAttribute('href', url);
     link.setAttribute('download', filename);
