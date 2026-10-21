@@ -14,6 +14,7 @@ import { demoDataService } from '../services/demo/DemoDataService';
 import { webBluetooth } from '../services/bluetooth/WebBluetoothService';
 import { webSerial } from '../services/bluetooth/WebSerialService';
 import { evaluatePlantModel } from '../services/ml/mlInference';
+import { cloudTelemetry } from '../services/api/cloudTelemetryService';
 
 interface SerialLogEntry {
   id: string;
@@ -44,6 +45,8 @@ interface PlantContextType {
   statusMessage: string;
   connectBle: () => Promise<boolean>;
   connectSerial: (baudRate?: number) => Promise<boolean>;
+  connectCloud: () => Promise<boolean>;
+  testCloudIngestion: (token?: string) => Promise<{ success: boolean; message?: string }>;
   disconnectHardware: () => void;
   serialLogs: SerialLogEntry[];
   injectManualPacket: (rawJson: string) => boolean;
@@ -308,11 +311,116 @@ export const PlantProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     return await webSerial.connect(baudRate);
   };
 
+  const connectCloud = async (): Promise<boolean> => {
+    addLog('sys', 'Checking Cloud Bridge endpoint (/api/telemetry)...');
+    setStatusMessage('Connecting to Cloud Bridge...');
+    setConnectionState('connecting');
+    const res = await cloudTelemetry.getLatest();
+    if (res && res.success) {
+      if (res.reading && !res.isStale) {
+        handleIncomingReading(res.reading);
+        if (res.history && res.history.length > 0) {
+          setHistory(res.history);
+          StorageService.saveTelemetryHistory(res.history);
+        }
+        setConnectionState('connected');
+        setConnectionProtocol('cloud');
+        setConnectedDeviceName('STM32 via Android Bridge');
+        setStatusMessage('Live Telemetry from STM32 via Cloud Bridge');
+        setIsDemoModeState(false);
+        StorageService.saveDemoMode(false);
+        addLog('sys', 'Cloud Bridge connected: Live readings active');
+        return true;
+      } else {
+        setConnectionState('connected');
+        setConnectionProtocol('cloud');
+        setConnectedDeviceName('Cloud Bridge (Ready)');
+        setStatusMessage(
+          res.reading
+            ? 'Cloud Bridge connected (last packet stale, waiting for fresh telemetry...)'
+            : 'Cloud Bridge connected (waiting for first packet from Android...)'
+        );
+        setIsDemoModeState(false);
+        StorageService.saveDemoMode(false);
+        addLog('sys', 'Cloud Bridge connected (listening for incoming packets)');
+        return true;
+      }
+    } else {
+      setConnectionState('error');
+      setStatusMessage('Failed to reach Cloud Bridge endpoint');
+      addLog('sys', 'Error: Cloud Bridge endpoint unreachable');
+      return false;
+    }
+  };
+
+  const testCloudIngestion = async (token?: string): Promise<{ success: boolean; message?: string }> => {
+    addLog('sys', 'Sending test telemetry packet to /api/telemetry...');
+    const testSample: SensorReading = {
+      moisture: 38.5,
+      temperature: 24.2,
+      humidity: 52.0,
+      light: 2850,
+      condition: 'Suitable',
+      suitabilityClass: 'suitable',
+      mlClassCode: 2,
+      timestamp: Date.now(),
+      confidence: 0.98,
+      isSynthetic: false,
+    };
+    const res = await cloudTelemetry.sendTestPacket(testSample, token);
+    if (res.success) {
+      addLog('sys', 'Test packet successfully accepted by Cloud Bridge!');
+      setStatusMessage('Test packet accepted by Cloud Bridge');
+      await connectCloud();
+      return { success: true, message: res.message };
+    } else {
+      addLog('sys', `Test packet rejected: ${res.error}`);
+      setStatusMessage(`Test packet rejected: ${res.error}`);
+      return { success: false, message: res.error };
+    }
+  };
+
+  // Cloud Telemetry Poller: periodically fetches /api/telemetry when cloud protocol is active
+  useEffect(() => {
+    if (connectionProtocol !== 'cloud' || isDemoMode) return;
+
+    let isMounted = true;
+    const pollInterval = Math.max(2000, refreshInterval);
+
+    const poll = async () => {
+      const res = await cloudTelemetry.getLatest();
+      if (!isMounted) return;
+
+      if (res && res.success && res.reading) {
+        if (!res.isStale) {
+          handleIncomingReading(res.reading);
+          setConnectionState('connected');
+          setConnectedDeviceName('STM32 via Android Bridge');
+          setStatusMessage('Streaming live telemetry from STM32');
+        } else {
+          setConnectionState('disconnected');
+          setStatusMessage('Cloud Bridge: Hardware offline or no data received in >45s');
+        }
+      }
+    };
+
+    poll();
+    const timer = setInterval(poll, pollInterval);
+    return () => {
+      isMounted = false;
+      clearInterval(timer);
+    };
+  }, [connectionProtocol, isDemoMode, refreshInterval, handleIncomingReading]);
+
   const disconnectHardware = () => {
     if (connectionProtocol === 'ble') webBluetooth.disconnect();
     else if (connectionProtocol === 'serial') webSerial.disconnect();
     setConnectionState('disconnected');
     setConnectedDeviceName(null);
+    setConnectionProtocol('demo');
+    setStatusMessage('Simulation Mode active.');
+    setIsDemoModeState(true);
+    StorageService.saveDemoMode(true);
   };
 
   const injectManualPacket = (rawJson: string): boolean => {
@@ -413,6 +521,8 @@ export const PlantProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         statusMessage,
         connectBle,
         connectSerial,
+        connectCloud,
+        testCloudIngestion,
         disconnectHardware,
         serialLogs,
         injectManualPacket,

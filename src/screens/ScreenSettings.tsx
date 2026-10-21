@@ -11,6 +11,12 @@ import {
   Info,
   Code,
   Database,
+  Cloud,
+  Smartphone,
+  Check,
+  Copy,
+  Sparkles,
+  RefreshCw,
 } from 'lucide-react';
 
 export const ScreenSettings: React.FC = () => {
@@ -21,6 +27,8 @@ export const ScreenSettings: React.FC = () => {
     statusMessage,
     connectBle,
     connectSerial,
+    connectCloud,
+    testCloudIngestion,
     disconnectHardware,
     isDemoMode,
     setIsDemoMode,
@@ -33,11 +41,41 @@ export const ScreenSettings: React.FC = () => {
   } = usePlant();
 
   const [isConnecting, setIsConnecting] = useState(false);
+  const [isTestingPing, setIsTestingPing] = useState(false);
+  const [pingResult, setPingResult] = useState<string | null>(null);
+  const [copiedUrl, setCopiedUrl] = useState(false);
+  const [authTokenInput, setAuthTokenInput] = useState('');
   const [baudRate, setBaudRate] = useState<number>(9600);
   const [isTerminalOpen, setIsTerminalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [downloadSuccess, setDownloadSuccess] = useState(false);
   const [activeInfoTab, setActiveInfoTab] = useState<'about' | 'protocol' | 'model'>('model');
+
+  const handleCloudConnect = async () => {
+    setIsConnecting(true);
+    await connectCloud();
+    setIsConnecting(false);
+  };
+
+  const handleTestPing = async () => {
+    setIsTestingPing(true);
+    setPingResult(null);
+    const res = await testCloudIngestion(authTokenInput.trim() || undefined);
+    setIsTestingPing(false);
+    if (res.success) {
+      setPingResult('Test telemetry ingested & verified!');
+    } else {
+      setPingResult(`Error: ${res.message || 'Failed to reach API'}`);
+    }
+    setTimeout(() => setPingResult(null), 4000);
+  };
+
+  const copyEndpointUrl = () => {
+    const url = `${window.location.origin}/api/telemetry`;
+    navigator.clipboard.writeText(url);
+    setCopiedUrl(true);
+    setTimeout(() => setCopiedUrl(false), 2000);
+  };
 
   const handleBleConnect = async () => {
     setIsConnecting(true);
@@ -124,37 +162,121 @@ export const ScreenSettings: React.FC = () => {
           </div>
         ) : (
           <div className="space-y-3">
-            <div className="grid grid-cols-2 gap-2.5">
-              <button
-                onClick={handleBleConnect}
-                disabled={isConnecting}
-                className="py-3 px-3 rounded-2xl bg-forest-600 hover:bg-forest-700 text-white font-semibold text-xs flex flex-col items-center justify-center gap-1 shadow-soft transition-all active:scale-[0.98]"
-              >
-                <div className="flex items-center gap-1.5">
-                  <Bluetooth className="w-4 h-4" />
-                  <span>Connect BLE</span>
+            {/* 1. Primary Option: Android Cloud Bridge for HC-05 */}
+            <div className="p-3.5 bg-forest-50/70 border border-forest-200/90 rounded-2xl space-y-2.5">
+              <div className="flex items-start justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="p-2 rounded-xl bg-forest-600 text-white shadow-soft">
+                    <Cloud className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <h3 className="text-xs font-bold text-forest-900">
+                      Cloud Bridge (HC-05 + Android)
+                    </h3>
+                    <span className="text-[10px] text-forest-700 block">
+                      Recommended for HC-05 Bluetooth Classic SPP
+                    </span>
+                  </div>
                 </div>
-                <span className="text-[10px] font-normal text-sage-200">
-                  HM-10 / ESP32 GATT
-                </span>
-              </button>
 
-              <button
-                onClick={handleSerialConnect}
-                disabled={isConnecting}
-                className="py-3 px-3 rounded-2xl bg-cream-50 hover:bg-cream-100 border border-cream-300 text-forest-900 font-semibold text-xs flex flex-col items-center justify-center gap-1 transition-all active:scale-[0.98]"
-              >
-                <div className="flex items-center gap-1.5">
-                  <Cpu className="w-4 h-4 text-forest-700" />
-                  <span>Connect Serial</span>
-                </div>
-                <span className="text-[10px] font-normal text-stone-500">
-                  HC-05 / USB COM Port
+                <button
+                  onClick={handleCloudConnect}
+                  disabled={isConnecting}
+                  className="py-1.5 px-3 rounded-xl bg-forest-600 hover:bg-forest-700 text-white font-semibold text-xs flex items-center gap-1.5 shadow-soft transition-all active:scale-[0.98]"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 ${isConnecting ? 'animate-spin' : ''}`} />
+                  <span>Connect Bridge</span>
+                </button>
+              </div>
+
+              <p className="text-[11px] text-stone-600 leading-snug">
+                Your Android phone receives live readings from the HC-05 via Bluetooth Classic and securely forwards them to this dashboard over HTTPS.
+              </p>
+
+              {/* Endpoint URL display */}
+              <div className="space-y-1">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-stone-500 block">
+                  Bridge Ingestion Endpoint:
                 </span>
-              </button>
+                <div className="flex items-center gap-1.5 p-2 bg-white rounded-xl border border-cream-300 text-[11px] font-mono text-stone-700">
+                  <span className="truncate flex-1 select-all">
+                    {typeof window !== 'undefined' ? `${window.location.origin}/api/telemetry` : '/api/telemetry'}
+                  </span>
+                  <button
+                    onClick={copyEndpointUrl}
+                    className="p-1 rounded-lg hover:bg-cream-100 text-stone-500 hover:text-forest-700 transition-colors"
+                    title="Copy URL"
+                  >
+                    {copiedUrl ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
+                  </button>
+                </div>
+              </div>
+
+              {/* Test Packet Ping Form */}
+              <div className="pt-1 border-t border-forest-100 space-y-1.5">
+                <div className="flex items-center justify-between text-[10px] text-stone-500">
+                  <span>Optional Auth Token for Test Ping:</span>
+                  {pingResult && (
+                    <span className="font-semibold text-emerald-700">{pingResult}</span>
+                  )}
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <input
+                    type="password"
+                    placeholder="Enter DEVICE_AUTH_TOKEN (if configured)"
+                    value={authTokenInput}
+                    onChange={(e) => setAuthTokenInput(e.target.value)}
+                    className="flex-1 px-2.5 py-1.5 rounded-xl border border-cream-300 bg-white text-xs font-mono"
+                  />
+                  <button
+                    onClick={handleTestPing}
+                    disabled={isTestingPing}
+                    className="py-1.5 px-3 rounded-xl bg-forest-100 hover:bg-forest-200 text-forest-800 font-semibold text-xs transition-colors shrink-0 flex items-center gap-1"
+                  >
+                    <Sparkles className="w-3.5 h-3.5 text-forest-600" />
+                    <span>{isTestingPing ? 'Testing...' : 'Test Ingestion'}</span>
+                  </button>
+                </div>
+              </div>
             </div>
 
-            <div className="flex items-center justify-between text-xs text-stone-600 px-1">
+            {/* 2. Alternative Direct Connections */}
+            <div className="space-y-1.5 pt-1">
+              <span className="text-[10px] font-bold text-stone-400 uppercase tracking-wider block">
+                Direct Device Connections:
+              </span>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  onClick={handleBleConnect}
+                  disabled={isConnecting}
+                  className="py-2.5 px-3 rounded-2xl bg-cream-50 hover:bg-cream-100 border border-cream-300 text-forest-900 font-semibold text-xs flex flex-col items-center justify-center gap-0.5 transition-all active:scale-[0.98]"
+                >
+                  <div className="flex items-center gap-1">
+                    <Bluetooth className="w-3.5 h-3.5 text-forest-600" />
+                    <span>Connect BLE</span>
+                  </div>
+                  <span className="text-[9px] font-normal text-stone-400">
+                    HM-10 / GATT
+                  </span>
+                </button>
+
+                <button
+                  onClick={handleSerialConnect}
+                  disabled={isConnecting}
+                  className="py-2.5 px-3 rounded-2xl bg-cream-50 hover:bg-cream-100 border border-cream-300 text-forest-900 font-semibold text-xs flex flex-col items-center justify-center gap-0.5 transition-all active:scale-[0.98]"
+                >
+                  <div className="flex items-center gap-1">
+                    <Cpu className="w-3.5 h-3.5 text-forest-600" />
+                    <span>Connect Serial</span>
+                  </div>
+                  <span className="text-[9px] font-normal text-stone-400">
+                    Desktop COM Port
+                  </span>
+                </button>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-between text-xs text-stone-600 px-1 pt-1">
               <span>Serial Baud Rate:</span>
               <div className="flex gap-1.5">
                 {[9600, 115200].map((baud) => (
@@ -373,11 +495,12 @@ export const ScreenSettings: React.FC = () => {
         )}
 
         {activeInfoTab === 'protocol' && (
-          <div className="space-y-2 text-xs">
-            <p className="text-stone-600 leading-snug">
-              Transmitted ASCII JSON frames over Bluetooth UART at 9600 baud, delimited by <code>\r\n</code>:
-            </p>
-            <pre className="p-3 bg-stone-900 text-emerald-300 rounded-2xl font-mono text-[11px] overflow-x-auto leading-relaxed">
+          <div className="space-y-3 text-xs">
+            <div>
+              <span className="font-semibold text-stone-800 block mb-1">
+                1. STM32 UART Transmission Format (9600 baud, delimited by \r\n):
+              </span>
+              <pre className="p-3 bg-stone-900 text-emerald-300 rounded-2xl font-mono text-[11px] overflow-x-auto leading-relaxed">
 {`{
   "moisture": 49.1,
   "temperature": 33.4,
@@ -385,7 +508,22 @@ export const ScreenSettings: React.FC = () => {
   "light": 2161,
   "condition": "Moderate Stress"
 }`}
-            </pre>
+              </pre>
+            </div>
+
+            <div>
+              <span className="font-semibold text-stone-800 block mb-1">
+                2. Android HTTPS Bridge Webhook (POST /api/telemetry):
+              </span>
+              <pre className="p-3 bg-stone-900 text-sky-300 rounded-2xl font-mono text-[11px] overflow-x-auto leading-relaxed">
+{`POST /api/telemetry HTTP/1.1
+Host: plantcare-ai-mocha.vercel.app
+Content-Type: application/json
+Authorization: Bearer <DEVICE_AUTH_TOKEN>
+
+{"moisture":49.1,"temperature":33.4,"humidity":48.8,"light":2161,"condition":"Moderate Stress"}`}
+              </pre>
+            </div>
           </div>
         )}
 

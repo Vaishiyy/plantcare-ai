@@ -70,7 +70,7 @@ export interface AlertItem {
 }
 
 export type ConnectionState = 'disconnected' | 'connecting' | 'connected' | 'error';
-export type ConnectionProtocol = 'ble' | 'serial' | 'demo';
+export type ConnectionProtocol = 'ble' | 'serial' | 'demo' | 'cloud';
 
 export interface AlertPreferences {
   lowMoisture: boolean;
