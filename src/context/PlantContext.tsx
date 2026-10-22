@@ -97,7 +97,7 @@ export const PlantProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   const [connectionState, setConnectionState] = useState<ConnectionState>('disconnected');
   const [connectionProtocol, setConnectionProtocolState] = useState<ConnectionProtocol>(() => {
-    return (localStorage.getItem('plant_connection_protocol') as ConnectionProtocol) || 'cloud';
+    return (localStorage.getItem('plant_connection_protocol') as ConnectionProtocol) || 'serial';
   });
 
   const setConnectionProtocol = useCallback((protocol: ConnectionProtocol) => {

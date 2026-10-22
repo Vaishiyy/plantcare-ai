@@ -13,9 +13,12 @@ import {
   RefreshCw,
   FlaskConical,
   Database,
+  Cpu,
+  Terminal,
 } from 'lucide-react';
 import { analyzeTelemetry } from '../services/ml/mlInference';
 import { EditPlantModal } from '../components/EditPlantModal';
+import { SerialTerminalModal } from '../components/SerialTerminalModal';
 
 export const ScreenDashboard: React.FC = () => {
   const {
@@ -28,10 +31,12 @@ export const ScreenDashboard: React.FC = () => {
     statusMessage,
     setActiveScreen,
     refreshReadings,
+    connectSerial,
     tempUnit,
   } = usePlant();
 
   const [isEditOpen, setIsEditOpen] = useState(false);
+  const [isTerminalOpen, setIsTerminalOpen] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
 
   const realDiagnostic = analyzeTelemetry(currentReading, activeProfile.thresholds, activeProfile.plantCode);
@@ -157,11 +162,11 @@ export const ScreenDashboard: React.FC = () => {
             </button>
           ) : (
             <button
-              onClick={() => setActiveScreen('settings')}
-              className="py-2.5 px-3 rounded-2xl bg-cream-50 hover:bg-cream-100 border border-cream-300 text-forest-800 font-semibold text-xs flex items-center justify-center gap-1.5 transition-all active:scale-[0.98]"
+              onClick={() => setIsTerminalOpen(true)}
+              className="py-2.5 px-3 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs flex items-center justify-center gap-1.5 shadow-soft transition-all active:scale-[0.98]"
             >
-              <Bluetooth className="w-3.5 h-3.5 text-forest-600" />
-              <span>Connect Device</span>
+              <Cpu className="w-3.5 h-3.5" />
+              <span>⚡ Connect STM32</span>
             </button>
           )}
         </div>
@@ -287,9 +292,41 @@ export const ScreenDashboard: React.FC = () => {
             Baseline: 25°C Assumed
           </span>
         </div>
+
+        {/* 1-Click Connect & Stream Quick Action */}
+        <div className="mt-2 pt-2 border-t border-stone-200/80 flex items-center gap-2">
+          {connectionState !== 'connected' ? (
+            <>
+              <button
+                onClick={() => connectSerial(9600)}
+                className="flex-1 py-1.5 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-sm transition-all active:scale-[0.98]"
+              >
+                <Cpu className="w-3.5 h-3.5" />
+                <span>⚡ Connect STM32 Directly (9600 Baud)</span>
+              </button>
+              <button
+                onClick={() => setIsTerminalOpen(true)}
+                className="py-1.5 px-2.5 rounded-xl bg-white hover:bg-stone-100 border border-stone-300 text-stone-700 font-semibold text-xs flex items-center gap-1 transition-colors"
+                title="Open Live UART Telemetry Monitor"
+              >
+                <Terminal className="w-3.5 h-3.5 text-stone-600" />
+                <span>Monitor</span>
+              </button>
+            </>
+          ) : (
+            <button
+              onClick={() => setIsTerminalOpen(true)}
+              className="w-full py-1.5 px-3 rounded-xl bg-emerald-100 hover:bg-emerald-200 border border-emerald-300 text-emerald-900 font-bold text-xs flex items-center justify-center gap-1.5 transition-colors"
+            >
+              <Terminal className="w-3.5 h-3.5 text-emerald-700" />
+              <span>Open STM32 Live UART Monitor ({connectionProtocol.toUpperCase()})</span>
+            </button>
+          )}
+        </div>
       </div>
 
       <EditPlantModal isOpen={isEditOpen} onClose={() => setIsEditOpen(false)} />
+      <SerialTerminalModal isOpen={isTerminalOpen} onClose={() => setIsTerminalOpen(false)} />
     </div>
   );
 };

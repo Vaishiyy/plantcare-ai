@@ -56,27 +56,49 @@ export class WebSerialManager {
     }
   }
 
+  public async autoConnect(baudRate: number = 9600): Promise<boolean> {
+    if (!this.isSupported()) return false;
+    try {
+      const ports = await (navigator as any).serial.getPorts();
+      if (ports && ports.length > 0) {
+        this.port = ports[0];
+        await this.port.open({ baudRate });
+        this.onStatusChanged?.('connected', `Connected via Serial (Baud: ${baudRate})`);
+        this.startReading();
+        return true;
+      }
+    } catch (e) {
+      console.warn('Auto-reconnect failed:', e);
+    }
+    return false;
+  }
+
   private async startReading(): Promise<void> {
     if (!this.port || !this.port.readable) return;
 
     this.isReading = true;
-    const textDecoder = new TextDecoderStream();
-    this.readableStreamClosed = this.port.readable.pipeTo(textDecoder.writable);
-    this.reader = textDecoder.readable.getReader();
+    const decoder = new TextDecoder('utf-8');
 
     try {
+      this.reader = this.port.readable.getReader();
       while (this.isReading) {
         const { value, done } = await this.reader.read();
         if (done) break;
         if (value) {
-          this.processChunk(value);
+          const chunk = decoder.decode(value, { stream: true });
+          this.processChunk(chunk);
         }
       }
-    } catch (error) {
-      this.onStatusChanged?.('error', 'Serial read error occurred.');
+    } catch (error: any) {
+      if (this.isReading) {
+        console.warn('Serial read loop error:', error);
+        this.onStatusChanged?.('error', error.message || 'Serial read error occurred.');
+      }
     } finally {
-      this.reader?.releaseLock();
-      this.disconnect();
+      try {
+        this.reader?.releaseLock();
+      } catch (e) {}
+      this.reader = null;
     }
   }
 
@@ -261,27 +283,22 @@ export class WebSerialManager {
     if (this.reader) {
       try {
         await this.reader.cancel();
-      } catch (e) {
-        // ignore
-      }
-    }
-    if (this.readableStreamClosed) {
+      } catch (e) {}
       try {
-        await this.readableStreamClosed;
-      } catch (e) {
-        // ignore
-      }
+        this.reader.releaseLock();
+      } catch (e) {}
+      this.reader = null;
     }
     if (this.port) {
       try {
         await this.port.close();
       } catch (e) {
-        // ignore
+        console.warn('Port close exception:', e);
       }
       this.port = null;
     }
     this.buffer = '';
-    this.onStatusChanged?.('disconnected', 'Serial port closed');
+    this.onStatusChanged?.('disconnected', 'Serial port disconnected');
   }
 
   public isConnected(): boolean {

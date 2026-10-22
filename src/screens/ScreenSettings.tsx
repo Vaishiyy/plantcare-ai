@@ -165,176 +165,175 @@ export const ScreenSettings: React.FC = () => {
           </div>
         ) : (
           <div className="space-y-3">
-            {/* 1. Primary Option: Android Cloud Bridge for HC-05 */}
-            <div className="p-3.5 bg-forest-50/70 border border-forest-200/90 rounded-2xl space-y-2.5">
+            {/* 1. PRIMARY OPTION: Direct Serial Stream (USB / Bluetooth HC-05 COM) */}
+            <div className="p-4 bg-emerald-50/80 border-2 border-emerald-300 rounded-3xl space-y-3 shadow-soft">
               <div className="flex items-start justify-between">
-                <div className="flex items-center gap-2">
-                  <div className="p-2 rounded-xl bg-forest-600 text-white shadow-soft">
-                    <Cloud className="w-4 h-4" />
+                <div className="flex items-center gap-2.5">
+                  <div className="p-2.5 rounded-2xl bg-emerald-600 text-white shadow-soft">
+                    <Cpu className="w-5 h-5" />
                   </div>
                   <div>
-                    <h3 className="text-xs font-bold text-forest-900">
-                      Cloud Bridge (HC-05 + Android)
-                    </h3>
-                    <span className="text-[10px] text-forest-700 block">
-                      Recommended for HC-05 Bluetooth Classic SPP
+                    <div className="flex items-center gap-2">
+                      <h3 className="text-sm font-bold text-emerald-950 font-display">
+                        Direct STM32 Serial Stream
+                      </h3>
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-200/80 text-emerald-900 border border-emerald-300">
+                        Primary / Auto-Streaming
+                      </span>
+                    </div>
+                    <span className="text-[11px] text-emerald-800 block">
+                      USB Cable (ST-Link VCP / CH340) or Windows Paired HC-05 COM Port
                     </span>
                   </div>
                 </div>
-
-                <button
-                  onClick={handleCloudConnect}
-                  disabled={isConnecting}
-                  className="py-1.5 px-3 rounded-xl bg-forest-600 hover:bg-forest-700 text-white font-semibold text-xs flex items-center gap-1.5 shadow-soft transition-all active:scale-[0.98]"
-                >
-                  <RefreshCw className={`w-3.5 h-3.5 ${isConnecting ? 'animate-spin' : ''}`} />
-                  <span>Connect Bridge</span>
-                </button>
               </div>
 
-              <p className="text-[11px] text-stone-600 leading-snug">
-                Your Android phone receives live readings from the HC-05 via Bluetooth Classic and securely forwards them to this dashboard over HTTPS.
+              <p className="text-xs text-stone-600 leading-snug">
+                Reads live sensor readings directly from your STM32 hardware in real time. No external terminal application or manual data typing required!
               </p>
 
-              {/* Endpoint URL display */}
-              <div className="space-y-1">
-                <span className="text-[10px] font-bold uppercase tracking-wider text-stone-500 block">
-                  Bridge Ingestion Endpoint:
-                </span>
-                <div className="flex items-center gap-1.5 p-2 bg-white rounded-xl border border-cream-300 text-[11px] font-mono text-stone-700">
-                  <span className="truncate flex-1 select-all">
-                    {typeof window !== 'undefined' ? `${window.location.origin}/api/telemetry` : '/api/telemetry'}
-                  </span>
-                  <button
-                    onClick={copyEndpointUrl}
-                    className="p-1 rounded-lg hover:bg-cream-100 text-stone-500 hover:text-forest-700 transition-colors"
-                    title="Copy URL"
-                  >
-                    {copiedUrl ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
-                  </button>
+              {/* Baud Rate Selection */}
+              <div className="flex items-center justify-between text-xs text-stone-700 bg-white/70 p-2.5 rounded-xl border border-emerald-200">
+                <span className="font-semibold text-stone-800">UART Baud Rate:</span>
+                <div className="flex gap-1.5 font-mono">
+                  {[9600, 115200].map((baud) => (
+                    <button
+                      key={baud}
+                      onClick={() => setBaudRate(baud)}
+                      className={`px-3 py-1 rounded-lg text-xs font-bold transition-all ${
+                        baudRate === baud
+                          ? 'bg-emerald-600 text-white shadow-sm'
+                          : 'bg-emerald-100/60 text-emerald-900 hover:bg-emerald-100'
+                      }`}
+                    >
+                      {baud} {baud === 9600 ? '(Default)' : ''}
+                    </button>
+                  ))}
                 </div>
               </div>
 
-              {/* Test Packet Ping Form */}
-              <div className="pt-1 border-t border-forest-100 space-y-1.5">
-                <div className="flex items-center justify-between text-[10px] text-stone-500">
-                  <span>Optional Auth Token for Test Ping:</span>
-                  {pingResult && (
-                    <span className="font-semibold text-emerald-700">{pingResult}</span>
-                  )}
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <input
-                    type="password"
-                    placeholder="Enter DEVICE_AUTH_TOKEN (if configured)"
-                    value={authTokenInput}
-                    onChange={(e) => setAuthTokenInput(e.target.value)}
-                    className="flex-1 px-2.5 py-1.5 rounded-xl border border-cream-300 bg-white text-xs font-mono"
-                  />
-                  <button
-                    onClick={handleTestPing}
-                    disabled={isTestingPing}
-                    className="py-1.5 px-3 rounded-xl bg-forest-100 hover:bg-forest-200 text-forest-800 font-semibold text-xs transition-colors shrink-0 flex items-center gap-1"
-                  >
-                    <Sparkles className="w-3.5 h-3.5 text-forest-600" />
-                    <span>{isTestingPing ? 'Testing...' : 'Test Ingestion'}</span>
-                  </button>
-                </div>
-              </div>
-
-              {/* Instant Telemetry Ingest Form: Paste raw line from Android Terminal */}
-              <div className="pt-2 border-t border-forest-100 space-y-1.5">
-                <div className="flex items-center justify-between text-[10px] text-stone-500">
-                  <span className="font-semibold text-forest-900">Paste line from Android Bluetooth Terminal:</span>
-                  {manualIngestMsg && (
-                    <span className="font-semibold text-emerald-700">{manualIngestMsg}</span>
-                  )}
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <input
-                    type="text"
-                    placeholder="PLANT=ALOE_VERA,ML_CLASS=0,ML_STATUS=HIGH STRESS,TEMP_C_ASSUMED=25,SOIL_PCT=0..."
-                    value={manualLineInput}
-                    onChange={(e) => setManualLineInput(e.target.value)}
-                    className="flex-1 px-2.5 py-1.5 rounded-xl border border-cream-300 bg-white text-xs font-mono"
-                  />
-                  <button
-                    onClick={() => {
-                      if (!manualLineInput.trim()) return;
-                      const ok = injectManualPacket(manualLineInput.trim());
-                      if (ok) {
-                        setManualIngestMsg('✓ Applied to Dashboard!');
-                        setManualLineInput('');
-                      } else {
-                        setManualIngestMsg('✕ Invalid format');
-                      }
-                      setTimeout(() => setManualIngestMsg(null), 3000);
-                    }}
-                    className="py-1.5 px-3 rounded-xl bg-forest-600 hover:bg-forest-700 text-white font-semibold text-xs transition-colors shrink-0 flex items-center gap-1"
-                  >
-                    <span>Ingest Line</span>
-                  </button>
-                </div>
-                <p className="text-[10px] text-stone-500 leading-tight">
-                  Format: <code>PLANT=ALOE_VERA,ML_CLASS=0,ML_STATUS=HIGH STRESS,TEMP_C_ASSUMED=25,SOIL_PCT=0...</code>
-                </p>
-              </div>
-            </div>
-
-            {/* 2. Alternative Direct Connections */}
-            <div className="space-y-1.5 pt-1">
-              <span className="text-[10px] font-bold text-stone-400 uppercase tracking-wider block">
-                Direct Device Connections:
-              </span>
-              <div className="grid grid-cols-2 gap-2">
-                <button
-                  onClick={handleBleConnect}
-                  disabled={isConnecting}
-                  className="py-2.5 px-3 rounded-2xl bg-cream-50 hover:bg-cream-100 border border-cream-300 text-forest-900 font-semibold text-xs flex flex-col items-center justify-center gap-0.5 transition-all active:scale-[0.98]"
-                >
-                  <div className="flex items-center gap-1">
-                    <Bluetooth className="w-3.5 h-3.5 text-forest-600" />
-                    <span>Connect BLE</span>
-                  </div>
-                  <span className="text-[9px] font-normal text-stone-400">
-                    HM-10 / GATT
-                  </span>
-                </button>
-
+              {/* Action Buttons */}
+              <div className="grid grid-cols-2 gap-2 pt-1">
                 <button
                   onClick={handleSerialConnect}
                   disabled={isConnecting}
-                  className="py-2.5 px-3 rounded-2xl bg-cream-50 hover:bg-cream-100 border border-cream-300 text-forest-900 font-semibold text-xs flex flex-col items-center justify-center gap-0.5 transition-all active:scale-[0.98]"
+                  className="py-2.5 px-3 rounded-2xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-soft transition-all active:scale-[0.98]"
                 >
-                  <div className="flex items-center gap-1">
-                    <Cpu className="w-3.5 h-3.5 text-forest-600" />
-                    <span>Connect Serial</span>
-                  </div>
-                  <span className="text-[9px] font-normal text-stone-400">
-                    Desktop COM Port
-                  </span>
+                  <Cpu className="w-4 h-4" />
+                  <span>{isConnecting ? 'Connecting...' : '⚡ Connect STM32 Directly'}</span>
+                </button>
+
+                <button
+                  onClick={() => setIsTerminalOpen(true)}
+                  className="py-2.5 px-3 rounded-2xl bg-white hover:bg-stone-50 border border-emerald-300 text-emerald-900 font-bold text-xs flex items-center justify-center gap-1.5 shadow-soft transition-all active:scale-[0.98]"
+                >
+                  <Terminal className="w-4 h-4 text-emerald-600" />
+                  <span>Open Live UART Monitor</span>
                 </button>
               </div>
             </div>
 
-            <div className="flex items-center justify-between text-xs text-stone-600 px-1 pt-1">
-              <span>Serial Baud Rate:</span>
-              <div className="flex gap-1.5">
-                {[9600, 115200].map((baud) => (
-                  <button
-                    key={baud}
-                    onClick={() => setBaudRate(baud)}
-                    className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-all ${
-                      baudRate === baud
-                        ? 'bg-forest-600 text-white'
-                        : 'bg-cream-100 text-stone-600 border border-cream-200'
-                    }`}
-                  >
-                    {baud}
-                  </button>
-                ))}
+            {/* 2. Web Bluetooth Direct (BLE HM-10) */}
+            <div className="p-3 bg-cream-50/90 border border-cream-200 rounded-2xl flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="p-2 rounded-xl bg-forest-100 text-forest-700">
+                  <Bluetooth className="w-4 h-4" />
+                </div>
+                <div>
+                  <h4 className="text-xs font-bold text-stone-900">Direct Web Bluetooth (BLE)</h4>
+                  <span className="text-[10px] text-stone-500">For HM-10 / Nordic BLE modules</span>
+                </div>
               </div>
+              <button
+                onClick={handleBleConnect}
+                disabled={isConnecting}
+                className="py-1.5 px-3 rounded-xl bg-forest-600 hover:bg-forest-700 text-white font-semibold text-xs transition-all active:scale-[0.98]"
+              >
+                Connect BLE
+              </button>
             </div>
+
+            {/* 3. Remote Cloud Bridge (Optional Android Relay) */}
+            <details className="group p-3 bg-stone-50 border border-stone-200 rounded-2xl">
+              <summary className="cursor-pointer text-xs font-bold text-stone-800 flex items-center justify-between select-none">
+                <div className="flex items-center gap-2">
+                  <Cloud className="w-4 h-4 text-stone-500" />
+                  <span>Remote Cloud Bridge (Android Relay Option)</span>
+                </div>
+                <span className="text-[10px] font-normal text-stone-500 group-open:hidden">Click to expand</span>
+              </summary>
+
+              <div className="pt-3 space-y-2.5">
+                <p className="text-[11px] text-stone-600 leading-snug">
+                  Use this if your STM32 is connected to an Android phone running an HTTP forwarder relaying data over the cloud.
+                </p>
+
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-medium text-stone-700">Cloud Ingestion State:</span>
+                  <button
+                    onClick={handleCloudConnect}
+                    disabled={isConnecting}
+                    className="py-1 px-3 rounded-xl bg-stone-800 hover:bg-stone-900 text-white font-semibold text-xs transition-colors"
+                  >
+                    Sync Cloud Telemetry
+                  </button>
+                </div>
+
+                {/* Endpoint URL display */}
+                <div className="space-y-1">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-stone-500 block">
+                    Bridge Ingestion Endpoint:
+                  </span>
+                  <div className="flex items-center gap-1.5 p-2 bg-white rounded-xl border border-cream-300 text-[11px] font-mono text-stone-700">
+                    <span className="truncate flex-1 select-all">
+                      {typeof window !== 'undefined' ? `${window.location.origin}/api/telemetry` : '/api/telemetry'}
+                    </span>
+                    <button
+                      onClick={copyEndpointUrl}
+                      className="p-1 rounded-lg hover:bg-cream-100 text-stone-500 hover:text-forest-700 transition-colors"
+                      title="Copy URL"
+                    >
+                      {copiedUrl ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
+                    </button>
+                  </div>
+                </div>
+
+                {/* Offline Debug Ingest */}
+                <div className="pt-2 border-t border-stone-200 space-y-1.5">
+                  <div className="flex items-center justify-between text-[10px] text-stone-500">
+                    <span className="font-semibold text-stone-700">Offline Manual Ingestion (Testing Only):</span>
+                    {manualIngestMsg && (
+                      <span className="font-semibold text-emerald-700">{manualIngestMsg}</span>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <input
+                      type="text"
+                      placeholder="PLANT=ALOE_VERA,ML_CLASS=0,ML_STATUS=HIGH STRESS..."
+                      value={manualLineInput}
+                      onChange={(e) => setManualLineInput(e.target.value)}
+                      className="flex-1 px-2.5 py-1.5 rounded-xl border border-stone-300 bg-white text-xs font-mono"
+                    />
+                    <button
+                      onClick={() => {
+                        if (!manualLineInput.trim()) return;
+                        const ok = injectManualPacket(manualLineInput.trim());
+                        if (ok) {
+                          setManualIngestMsg('✓ Applied to Dashboard!');
+                          setManualLineInput('');
+                        } else {
+                          setManualIngestMsg('✕ Invalid format');
+                        }
+                        setTimeout(() => setManualIngestMsg(null), 3000);
+                      }}
+                      className="py-1.5 px-3 rounded-xl bg-stone-700 hover:bg-stone-800 text-white font-semibold text-xs transition-colors shrink-0"
+                    >
+                      Ingest
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </details>
           </div>
         )}
 

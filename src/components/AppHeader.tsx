@@ -71,24 +71,29 @@ export const AppHeader: React.FC = () => {
                   : 'bg-stone-100 border-stone-200 text-stone-600'
               }`}
             >
-              {connectionProtocol === 'cloud' ? (
+              {connectionState === 'connected' ? (
+                connectionProtocol === 'cloud' ? (
+                  <>
+                    <Cloud className="w-3.5 h-3.5 text-emerald-600" />
+                    <span className="truncate max-w-[130px]">STM32 Cloud Live</span>
+                  </>
+                ) : (
+                  <>
+                    <Bluetooth className="w-3.5 h-3.5 text-emerald-600" />
+                    <span className="truncate max-w-[130px]">
+                      {connectedDeviceName || (connectionProtocol === 'ble' ? 'BLE Linked' : 'STM32 Serial')}
+                    </span>
+                  </>
+                )
+              ) : connectionState === 'connecting' ? (
                 <>
-                  <Cloud className={`w-3.5 h-3.5 ${hasRealReading ? 'text-emerald-600' : 'text-blue-600 animate-pulse'}`} />
-                  <span className="truncate max-w-[130px]">
-                    {hasRealReading ? 'STM32 Cloud Live' : 'Cloud Bridge...'}
-                  </span>
-                </>
-              ) : connectionState === 'connected' ? (
-                <>
-                  <Bluetooth className="w-3.5 h-3.5 text-emerald-600" />
-                  <span className="truncate max-w-[130px]">
-                    {connectedDeviceName || (connectionProtocol === 'ble' ? 'BLE Linked' : 'Serial Port')}
-                  </span>
+                  <span className="w-2 h-2 rounded-full bg-blue-500 animate-ping" />
+                  <span>Connecting...</span>
                 </>
               ) : (
                 <>
                   <Bluetooth className="w-3.5 h-3.5 text-stone-400" />
-                  <span>Hardware Offline</span>
+                  <span>STM32 Offline</span>
                 </>
               )}
             </button>
