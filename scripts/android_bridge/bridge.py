@@ -35,26 +35,14 @@ BAUD_RATE = 9600
 def parse_telemetry_line(raw_line):
     """
     Parses incoming lines from STM32:
-    Supports:
-    1. Key-Value format from main.c:
-       PLANT=ALOE_VERA,ML_CLASS=2,ML_STATUS=SUITABLE,TEMP_C_ASSUMED=25,SOIL_PCT=45,HUM_RH_EST=55,HUM_ADC=3200,SOIL_RAW=2100,LDR_ADC=2400,POT_ADC=1500,SW1=0,SW2=0
-    2. Standard JSON:
-       {"moisture": 45, "humidity": 55, "light": 2400, "condition": "Suitable"}
+    Format:
+    PLANT=ALOE_VERA,ML_CLASS=0,ML_STATUS=HIGH STRESS,TEMP_C_ASSUMED=25,SOIL_PCT=0,HUM_RH_EST=20,HUM_ADC=4041,SOIL_RAW=4095,LDR_ADC=1827,POT_ADC=1237,SW1=0,SW2=0
     """
     raw_line = raw_line.strip()
     if not raw_line:
         return None
 
-    # Check for standard JSON
-    start = raw_line.find('{')
-    end = raw_line.rfind('}')
-    if start != -1 and end != -1 and end > start:
-        try:
-            return json.loads(raw_line[start:end+1])
-        except Exception:
-            pass
-
-    # Check for Key-Value format (from STM32 main.c)
+    # 1. Primary: Key-Value format (from STM32 main.c)
     if '=' in raw_line:
         kv = {}
         for part in raw_line.split(','):
@@ -82,7 +70,7 @@ def parse_telemetry_line(raw_line):
         elif 'LIGHT' in kv:
             payload['light'] = int(kv['LIGHT'])
 
-        # Temperature: Hardware has no temperature sensor; uses 25C assumed baseline
+        # Temperature: Hardware uses assumed room temp baseline (25C)
         if 'TEMP_C_ASSUMED' in kv:
             payload['temperature'] = float(kv['TEMP_C_ASSUMED'])
             payload['isTempAssumed'] = True
@@ -112,8 +100,46 @@ def parse_telemetry_line(raw_line):
             payload['plantCode'] = 0 if 'ALOE' in plant_str else 1
             payload['plant'] = 'Aloe Vera' if 'ALOE' in plant_str else 'Golden Pothos'
 
+        # Hardware ADC and Switch values
+        if 'HUM_ADC' in kv:
+            try:
+                payload['humAdc'] = int(kv['HUM_ADC'])
+            except ValueError:
+                pass
+        if 'SOIL_RAW' in kv:
+            try:
+                payload['soilRaw'] = int(kv['SOIL_RAW'])
+            except ValueError:
+                pass
+        if 'POT_ADC' in kv:
+            try:
+                payload['potAdc'] = int(kv['POT_ADC'])
+            except ValueError:
+                pass
+        if 'SW1' in kv:
+            try:
+                payload['sw1'] = int(kv['SW1'])
+            except ValueError:
+                pass
+        if 'SW2' in kv:
+            try:
+                payload['sw2'] = int(kv['SW2'])
+            except ValueError:
+                pass
+
+        payload['rawString'] = raw_line
+
         if 'moisture' in payload and 'light' in payload:
             return payload
+
+    # 2. Fallback: JSON format
+    start = raw_line.find('{')
+    end = raw_line.rfind('}')
+    if start != -1 and end != -1 and end > start:
+        try:
+            return json.loads(raw_line[start:end+1])
+        except Exception:
+            pass
 
     return None
 

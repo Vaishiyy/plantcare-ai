@@ -35,7 +35,7 @@ function getRedisClient(): Redis | null {
 }
 
 // Parse Key-Value format emitted by STM32 main.c:
-// PLANT=ALOE_VERA,ML_CLASS=2,ML_STATUS=SUITABLE,TEMP_C_ASSUMED=25,SOIL_PCT=45,HUM_RH_EST=55,HUM_ADC=3200,SOIL_RAW=2100,LDR_ADC=2400,POT_ADC=1500,SW1=0,SW2=0
+// PLANT=ALOE_VERA,ML_CLASS=0,ML_STATUS=HIGH STRESS,TEMP_C_ASSUMED=25,SOIL_PCT=0,HUM_RH_EST=20,HUM_ADC=4041,SOIL_RAW=4095,LDR_ADC=1827,POT_ADC=1237,SW1=0,SW2=0
 function parseKeyValueFormat(raw: string): any {
   if (typeof raw !== 'string' || !raw.includes('=')) return null;
   const kv: Record<string, string> = {};
@@ -49,39 +49,47 @@ function parseKeyValueFormat(raw: string): any {
     }
   }
 
-  const moisture = kv['SOIL_PCT'] ? parseFloat(kv['SOIL_PCT']) : undefined;
-  const humidity = kv['HUM_RH_EST'] ? parseFloat(kv['HUM_RH_EST']) : undefined;
-  const light = kv['LDR_ADC'] ? parseInt(kv['LDR_ADC'], 10) : undefined;
-  const temp = kv['TEMP_C_ASSUMED'] ? parseFloat(kv['TEMP_C_ASSUMED']) : 25.0;
+  const moisture = kv['SOIL_PCT'] !== undefined ? parseFloat(kv['SOIL_PCT']) : (kv['MOISTURE'] !== undefined ? parseFloat(kv['MOISTURE']) : undefined);
+  const humidity = kv['HUM_RH_EST'] !== undefined ? parseFloat(kv['HUM_RH_EST']) : (kv['HUMIDITY'] !== undefined ? parseFloat(kv['HUMIDITY']) : undefined);
+  const light = kv['LDR_ADC'] !== undefined ? parseInt(kv['LDR_ADC'], 10) : (kv['LIGHT'] !== undefined ? parseInt(kv['LIGHT'], 10) : undefined);
+  const temp = kv['TEMP_C_ASSUMED'] !== undefined ? parseFloat(kv['TEMP_C_ASSUMED']) : (kv['TEMP'] !== undefined ? parseFloat(kv['TEMP']) : 25.0);
 
-  if (moisture !== undefined && light !== undefined) {
+  if (moisture !== undefined && light !== undefined && !isNaN(moisture) && !isNaN(light)) {
+    const sw2Val = kv['SW2'] !== undefined ? parseInt(kv['SW2'], 10) : undefined;
+    const plantCode = sw2Val !== undefined ? (sw2Val === 1 ? 1 : 0) : (kv['PLANT'] && kv['PLANT'].toUpperCase().includes('POTHOS') ? 1 : 0);
+
     return {
       moisture,
       humidity: humidity ?? 50,
       light,
-      temperature: temp,
+      temperature: !isNaN(temp) ? temp : 25.0,
       isTempAssumed: true,
       condition: kv['ML_STATUS'] ? kv['ML_STATUS'].replace(/_/g, ' ') : undefined,
-      mlClassCode: kv['ML_CLASS'] ? parseInt(kv['ML_CLASS'], 10) : undefined,
-      plant: kv['PLANT'],
-      plantCode: kv['PLANT'] && kv['PLANT'].includes('POTHOS') ? 1 : 0,
+      mlClassCode: kv['ML_CLASS'] !== undefined ? parseInt(kv['ML_CLASS'], 10) : undefined,
+      plant: kv['PLANT'] || (plantCode === 1 ? 'Golden Pothos' : 'Aloe Vera'),
+      plantCode,
+      humAdc: kv['HUM_ADC'] !== undefined ? parseInt(kv['HUM_ADC'], 10) : undefined,
+      soilRaw: kv['SOIL_RAW'] !== undefined ? parseInt(kv['SOIL_RAW'], 10) : undefined,
+      potAdc: kv['POT_ADC'] !== undefined ? parseInt(kv['POT_ADC'], 10) : undefined,
+      sw1: kv['SW1'] !== undefined ? parseInt(kv['SW1'], 10) : undefined,
+      sw2: sw2Val,
       rawString: raw,
     };
   }
   return null;
 }
 
-// Helper to parse JSON or text body from request
+// Helper to parse Key-Value or JSON body from request
 async function getRequestBody(req: ExtendedRequest): Promise<any> {
   if (req.body && typeof req.body === 'object') {
     return req.body;
   }
   if (typeof req.body === 'string') {
+    const parsedKv = parseKeyValueFormat(req.body);
+    if (parsedKv) return parsedKv;
     try {
       return JSON.parse(req.body);
     } catch {
-      const parsedKv = parseKeyValueFormat(req.body);
-      if (parsedKv) return parsedKv;
       return null;
     }
   }
@@ -92,11 +100,15 @@ async function getRequestBody(req: ExtendedRequest): Promise<any> {
       raw += chunk;
     });
     req.on('end', () => {
+      const parsedKv = parseKeyValueFormat(raw);
+      if (parsedKv) {
+        resolve(parsedKv);
+        return;
+      }
       try {
         resolve(JSON.parse(raw));
       } catch {
-        const parsedKv = parseKeyValueFormat(raw);
-        resolve(parsedKv || null);
+        resolve(null);
       }
     });
     req.on('error', () => resolve(null));
@@ -365,6 +377,12 @@ export default async function handler(req: ExtendedRequest, res: ExtendedRespons
       isSynthetic: false, // Authentic Hardware Measurement from STM32!
       plantCode,
       isTempAssumed, // Signals to UI that temperature is assumed baseline
+      humAdc: body.humAdc ?? (body.HUM_ADC !== undefined ? parseInt(body.HUM_ADC, 10) : undefined),
+      soilRaw: body.soilRaw ?? (body.SOIL_RAW !== undefined ? parseInt(body.SOIL_RAW, 10) : undefined),
+      potAdc: body.potAdc ?? (body.POT_ADC !== undefined ? parseInt(body.POT_ADC, 10) : undefined),
+      sw1: body.sw1 ?? (body.SW1 !== undefined ? parseInt(body.SW1, 10) : undefined),
+      sw2: body.sw2 ?? (body.SW2 !== undefined ? parseInt(body.SW2, 10) : undefined),
+      rawString: body.rawString,
     };
 
     // 3. Persist to Upstash Redis

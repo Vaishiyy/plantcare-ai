@@ -8,7 +8,7 @@ export const AppHeader: React.FC = () => {
     connectionState,
     connectionProtocol,
     connectedDeviceName,
-    isDemoMode,
+    hasRealReading,
     isStale,
     lastUpdatedStr,
     unreadAlertCount,
@@ -33,7 +33,7 @@ export const AppHeader: React.FC = () => {
               </span>
               <span className="text-[10px] text-stone-400">•</span>
               <span className="text-[11px] text-stone-500 flex items-center gap-1">
-                Sync {lastUpdatedStr}
+                {hasRealReading ? `Sync ${lastUpdatedStr}` : 'Offline'}
               </span>
             </div>
             <h1 className="text-xl font-display font-bold text-forest-900 tracking-tight flex items-center gap-1.5">
@@ -64,25 +64,18 @@ export const AppHeader: React.FC = () => {
             <button
               onClick={() => setActiveScreen('settings')}
               className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border transition-all ${
-                isDemoMode
-                  ? 'bg-amber-50 border-amber-200/80 text-amber-800'
-                  : connectionState === 'connected'
+                hasRealReading && connectionState === 'connected'
                   ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
-                  : connectionState === 'connecting'
+                  : connectionState === 'connected' || connectionState === 'connecting'
                   ? 'bg-blue-50 border-blue-200 text-blue-800 animate-pulse'
                   : 'bg-stone-100 border-stone-200 text-stone-600'
               }`}
             >
-              {isDemoMode ? (
+              {connectionProtocol === 'cloud' ? (
                 <>
-                  <Radio className="w-3.5 h-3.5 text-amber-600 animate-pulse" />
-                  <span>Demo Mode</span>
-                </>
-              ) : connectionProtocol === 'cloud' ? (
-                <>
-                  <Cloud className={`w-3.5 h-3.5 ${connectionState === 'connected' ? 'text-emerald-600' : 'text-blue-600 animate-pulse'}`} />
+                  <Cloud className={`w-3.5 h-3.5 ${hasRealReading ? 'text-emerald-600' : 'text-blue-600 animate-pulse'}`} />
                   <span className="truncate max-w-[130px]">
-                    {connectionState === 'connected' ? 'STM32 Cloud Live' : 'Cloud Bridge...'}
+                    {hasRealReading ? 'STM32 Cloud Live' : 'Cloud Bridge...'}
                   </span>
                 </>
               ) : connectionState === 'connected' ? (

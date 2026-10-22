@@ -20,13 +20,33 @@ import { predictPlantSuitability } from '../services/ml/plantSuitabilityTree';
 import { SuitabilityClass } from '../types';
 
 export const ScreenAiAnalysis: React.FC = () => {
-  const { currentReading, activeProfile, history, selectProfile, refreshReadings } = usePlant();
+  const { currentReading, hasRealReading, activeProfile, history, selectProfile, refreshReadings } = usePlant();
   const [activeTab, setActiveTab] = useState<'model_analysis' | 'dataset_verifier'>('model_analysis');
   const [filterPlant, setFilterPlant] = useState<'all' | 'aloe_vera' | 'pothos'>('all');
   const [filterClass, setFilterClass] = useState<'all' | 'suitable' | 'moderate_stress' | 'high_stress'>('all');
   const [searchQuery, setSearchQuery] = useState('');
 
-  const diagnostic = analyzeTelemetry(currentReading, activeProfile.thresholds, activeProfile.plantCode);
+  const realDiagnostic = analyzeTelemetry(currentReading, activeProfile.thresholds, activeProfile.plantCode);
+  const diagnostic = hasRealReading
+    ? realDiagnostic
+    : {
+        condition: 'None' as any,
+        headline: 'STM32 Disconnected',
+        explanation: 'Real-time decision tree inferences will activate as soon as sensor telemetry from STM32 is received.',
+        recommendedAction: 'Connect your STM32 via Cloud Bridge or Serial.',
+        urgency: 'low' as const,
+        color: {
+          bg: 'bg-stone-50',
+          border: 'border-stone-200',
+          text: 'text-stone-700',
+          badge: 'bg-stone-100 text-stone-500 border-stone-200',
+          ring: '#E5E7EB',
+        },
+        factorWeights: { moisture: 0, temperature: 0, humidity: 0, light: 0 },
+        healthScore: 0,
+        mlClassCode: undefined,
+        confidenceDisplay: '--',
+      };
 
   const previousPredictions = history
     .slice(-12)
@@ -174,7 +194,7 @@ export const ScreenAiAnalysis: React.FC = () => {
               </div>
 
               <div className="px-3 py-1 rounded-full bg-forest-50 border border-forest-200 text-forest-800 text-xs font-bold flex items-center gap-1">
-                <span>98%</span>
+                <span>{hasRealReading ? '98%' : '--'}</span>
                 <span className="text-[10px] font-normal text-stone-500">care match</span>
               </div>
             </div>
@@ -200,7 +220,7 @@ export const ScreenAiAnalysis: React.FC = () => {
               <div className="space-y-2">
                 <div>
                   <div className="flex justify-between text-[11px] text-stone-600 mb-0.5">
-                    <span>Soil Moisture ({currentReading.moisture}%)</span>
+                    <span>Soil Moisture ({hasRealReading ? `${currentReading.moisture}%` : '--'})</span>
                     <span className="font-semibold text-blue-700">{diagnostic.factorWeights.moisture}%</span>
                   </div>
                   <div className="h-1.5 bg-stone-100 rounded-full overflow-hidden">
@@ -213,7 +233,7 @@ export const ScreenAiAnalysis: React.FC = () => {
 
                 <div>
                   <div className="flex justify-between text-[11px] text-stone-600 mb-0.5">
-                    <span>Temperature ({currentReading.temperature}°C)</span>
+                    <span>Temperature ({hasRealReading ? `${currentReading.temperature}°C` : '--'})</span>
                     <span className="font-semibold text-amber-700">{diagnostic.factorWeights.temperature}%</span>
                   </div>
                   <div className="h-1.5 bg-stone-100 rounded-full overflow-hidden">
@@ -226,7 +246,7 @@ export const ScreenAiAnalysis: React.FC = () => {
 
                 <div>
                   <div className="flex justify-between text-[11px] text-stone-600 mb-0.5">
-                    <span>Air Humidity ({currentReading.humidity}%)</span>
+                    <span>Air Humidity ({hasRealReading ? `${currentReading.humidity}%` : '--'})</span>
                     <span className="font-semibold text-teal-700">{diagnostic.factorWeights.humidity}%</span>
                   </div>
                   <div className="h-1.5 bg-stone-100 rounded-full overflow-hidden">
@@ -239,7 +259,7 @@ export const ScreenAiAnalysis: React.FC = () => {
 
                 <div>
                   <div className="flex justify-between text-[11px] text-stone-600 mb-0.5">
-                    <span>Sunlight Exposure ({currentReading.light} Lux)</span>
+                    <span>Sunlight Exposure ({hasRealReading ? `${currentReading.light} Lux` : '--'})</span>
                     <span className="font-semibold text-yellow-700">{diagnostic.factorWeights.light}%</span>
                   </div>
                   <div className="h-1.5 bg-stone-100 rounded-full overflow-hidden">
@@ -270,7 +290,7 @@ export const ScreenAiAnalysis: React.FC = () => {
             <div className="space-y-2.5">
               {suitabilityCards.map((card) => {
                 const Icon = card.icon;
-                const isCurrent = diagnostic.mlClassCode === card.code;
+                const isCurrent = hasRealReading && diagnostic.mlClassCode === card.code;
 
                 return (
                   <div

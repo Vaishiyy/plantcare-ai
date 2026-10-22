@@ -151,7 +151,7 @@ export const StorageService = {
 
   getDemoMode(): boolean {
     const val = localStorage.getItem(STORAGE_KEYS.DEMO_MODE);
-    return val === null ? true : val === 'true';
+    return val === 'true'; // Default is FALSE (Hardware-only mode)
   },
 
   saveDemoMode(enabled: boolean): void {

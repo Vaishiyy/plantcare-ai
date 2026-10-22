@@ -153,7 +153,14 @@ export class WebBluetoothManager {
       let mlClassCode: 0 | 1 | 2 | undefined;
       let plantCode: 0 | 1 = activePlantCode;
 
+      let humAdc: number | undefined;
+      let soilRaw: number | undefined;
+      let potAdc: number | undefined;
+      let sw1: number | undefined;
+      let sw2: number | undefined;
+
       // 1. Try Key-Value format from STM32 main.c:
+      // PLANT=ALOE_VERA,ML_CLASS=0,ML_STATUS=HIGH STRESS,TEMP_C_ASSUMED=25,SOIL_PCT=0,HUM_RH_EST=20,HUM_ADC=4041,SOIL_RAW=4095,LDR_ADC=1827,POT_ADC=1237,SW1=0,SW2=0
       if (rawText.includes('=')) {
         const kv: Record<string, string> = {};
         for (const part of rawText.replace(/[\r\n]/g, '').split(',')) {
@@ -184,6 +191,15 @@ export class WebBluetoothManager {
             temperature = tVal;
             isTempAssumed = false;
           }
+        }
+
+        if (kv['HUM_ADC'] !== undefined) humAdc = parseInt(kv['HUM_ADC'], 10);
+        if (kv['SOIL_RAW'] !== undefined) soilRaw = parseInt(kv['SOIL_RAW'], 10);
+        if (kv['POT_ADC'] !== undefined) potAdc = parseInt(kv['POT_ADC'], 10);
+        if (kv['SW1'] !== undefined) sw1 = parseInt(kv['SW1'], 10);
+        if (kv['SW2'] !== undefined) {
+          sw2 = parseInt(kv['SW2'], 10);
+          plantCode = sw2 === 1 ? 1 : 0;
         }
 
         if (kv['ML_STATUS'] !== undefined) {
@@ -274,6 +290,12 @@ export class WebBluetoothManager {
         isSynthetic: false, // Authentic Hardware!
         isTempAssumed,
         plantCode,
+        humAdc,
+        soilRaw,
+        potAdc,
+        sw1,
+        sw2,
+        rawString: rawText,
       };
 
       this.onDataReceived?.(reading, rawText);

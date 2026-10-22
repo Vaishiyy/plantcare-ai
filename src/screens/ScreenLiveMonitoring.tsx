@@ -17,10 +17,10 @@ import { analyzeTelemetry } from '../services/ml/mlInference';
 export const ScreenLiveMonitoring: React.FC = () => {
   const {
     currentReading,
+    hasRealReading,
     history,
     activeProfile,
     connectionState,
-    isDemoMode,
     isStale,
     lastUpdatedStr,
     refreshReadings,
@@ -32,9 +32,23 @@ export const ScreenLiveMonitoring: React.FC = () => {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isTerminalOpen, setIsTerminalOpen] = useState(false);
 
-  const diagnostic = analyzeTelemetry(currentReading, activeProfile.thresholds, activeProfile.plantCode);
+  const realDiagnostic = analyzeTelemetry(currentReading, activeProfile.thresholds, activeProfile.plantCode);
 
-  const liveWindowData = history.slice(-20);
+  const diagnostic = hasRealReading
+    ? realDiagnostic
+    : {
+        condition: 'None' as any,
+        headline: connectionState === 'connecting' ? 'Connecting to STM32...' : 'STM32 Disconnected',
+        explanation: 'Real-time telemetry and ML suitability predictions will activate when STM32 is connected and sending readings.',
+        recommendedAction: 'Connect your STM32 via Cloud Bridge or Serial.',
+        color: {
+          bg: 'bg-stone-50',
+          border: 'border-stone-200',
+          badge: 'bg-stone-100 text-stone-500',
+        },
+      };
+
+  const liveWindowData = hasRealReading ? history.slice(-20) : [];
 
   const handleManualRefresh = () => {
     setIsRefreshing(true);
@@ -50,12 +64,12 @@ export const ScreenLiveMonitoring: React.FC = () => {
           <div className="flex items-center gap-2">
             <div className="relative">
               <span className={`flex h-3 w-3 rounded-full ${
-                connectionState === 'connected' || isDemoMode
+                connectionState === 'connected'
                   ? 'bg-emerald-500 animate-ping'
                   : 'bg-stone-400'
               }`} />
               <span className={`absolute inset-0 rounded-full ${
-                connectionState === 'connected' || isDemoMode
+                connectionState === 'connected'
                   ? 'bg-emerald-500'
                   : 'bg-stone-400'
               }`} />
@@ -96,15 +110,15 @@ export const ScreenLiveMonitoring: React.FC = () => {
         </div>
 
         {/* Offline Warning Notice if disconnected */}
-        {connectionState !== 'connected' && !isDemoMode && (
+        {connectionState !== 'connected' && (
           <div className="p-3 bg-stone-100 border border-stone-200 rounded-2xl flex items-start gap-2.5 text-stone-600">
             <AlertTriangle className="w-4 h-4 text-stone-500 shrink-0 mt-0.5" />
             <div className="text-xs">
               <span className="font-bold text-stone-800 block">
-                Device Offline
+                STM32 Disconnected
               </span>
               <p className="leading-snug">
-                Showing last captured readings ({lastUpdatedStr}). Readings will resume automatically when your device reconnects.
+                Sensor readings and ML predictions will display automatically when your STM32 device connects.
               </p>
             </div>
           </div>
@@ -130,7 +144,7 @@ export const ScreenLiveMonitoring: React.FC = () => {
               Moisture
             </span>
             <span className="text-lg font-bold font-display text-blue-900 leading-tight">
-              {currentReading.moisture}%
+              {hasRealReading ? `${currentReading.moisture}%` : '--'}
             </span>
           </div>
 
@@ -139,7 +153,7 @@ export const ScreenLiveMonitoring: React.FC = () => {
               Temp (Assumed)
             </span>
             <span className="text-lg font-bold font-display text-amber-900 leading-tight">
-              {currentReading.temperature}°C
+              {hasRealReading ? `${currentReading.temperature}°C` : '--'}
             </span>
           </div>
 
@@ -148,7 +162,7 @@ export const ScreenLiveMonitoring: React.FC = () => {
               Humidity
             </span>
             <span className="text-lg font-bold font-display text-teal-900 leading-tight">
-              {currentReading.humidity}%
+              {hasRealReading ? `${currentReading.humidity}%` : '--'}
             </span>
           </div>
 
@@ -157,7 +171,7 @@ export const ScreenLiveMonitoring: React.FC = () => {
               Sunlight
             </span>
             <span className="text-lg font-bold font-display text-yellow-900 leading-tight">
-              {currentReading.light}
+              {hasRealReading ? currentReading.light : '--'}
             </span>
           </div>
         </div>

@@ -8,6 +8,7 @@ interface HealthProgressRingProps {
   confidence?: number;
   size?: number;
   strokeWidth?: number;
+  hasData?: boolean;
 }
 
 export const HealthProgressRing: React.FC<HealthProgressRingProps> = ({
@@ -17,6 +18,7 @@ export const HealthProgressRing: React.FC<HealthProgressRingProps> = ({
   confidence,
   size = 120,
   strokeWidth = 9,
+  hasData = true,
 }) => {
   const condStr = (condition || '').toLowerCase();
 
@@ -40,7 +42,12 @@ export const HealthProgressRing: React.FC<HealthProgressRingProps> = ({
   let glowColor = 'rgba(16, 185, 129, 0.25)';
   let conditionLabel = 'Optimal';
 
-  if (isHighStress) {
+  if (!hasData) {
+    score = 0;
+    strokeColor = '#E5E7EB'; // neutral
+    glowColor = 'transparent';
+    conditionLabel = 'None';
+  } else if (isHighStress) {
     score = healthScore !== undefined ? healthScore : 26;
     strokeColor = '#E11D48'; // red
     glowColor = 'rgba(225, 29, 72, 0.35)';
@@ -59,7 +66,7 @@ export const HealthProgressRing: React.FC<HealthProgressRingProps> = ({
 
   const radius = (size - strokeWidth) / 2;
   const circumference = 2 * Math.PI * radius;
-  const strokeDashoffset = circumference - (score / 100) * circumference;
+  const strokeDashoffset = hasData ? circumference - (score / 100) * circumference : circumference;
 
   return (
     <div className="relative flex items-center justify-center shrink-0" style={{ width: size, height: size }}>
@@ -93,20 +100,22 @@ export const HealthProgressRing: React.FC<HealthProgressRingProps> = ({
       <div className="absolute inset-0 flex flex-col items-center justify-center text-center px-1">
         <span
           className="text-2xl font-bold font-display leading-none transition-colors duration-500"
-          style={{ color: isHighStress ? '#BE123C' : isModerateStress ? '#B45309' : '#065F46' }}
+          style={{
+            color: !hasData ? '#9CA3AF' : isHighStress ? '#BE123C' : isModerateStress ? '#B45309' : '#065F46',
+          }}
         >
-          {score}%
+          {hasData ? `${score}%` : '--'}
         </span>
         <span
           className="text-[9px] font-bold uppercase tracking-wider mt-1 px-1.5 py-0.5 rounded-full transition-colors duration-500"
           style={{
-            backgroundColor: isHighStress ? '#FFE4E6' : isModerateStress ? '#FEF3C7' : '#D1FAE5',
-            color: isHighStress ? '#9F1239' : isModerateStress ? '#92400E' : '#065F46',
+            backgroundColor: !hasData ? '#F3F4F6' : isHighStress ? '#FFE4E6' : isModerateStress ? '#FEF3C7' : '#D1FAE5',
+            color: !hasData ? '#6B7280' : isHighStress ? '#9F1239' : isModerateStress ? '#92400E' : '#065F46',
           }}
         >
           {conditionLabel}
         </span>
-        {confidence !== undefined && (
+        {hasData && confidence !== undefined && (
           <span className="text-[9px] text-stone-400 mt-0.5 font-medium">
             {Math.round(confidence * 100)}% conf
           </span>

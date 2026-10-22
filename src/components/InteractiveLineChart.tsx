@@ -69,7 +69,7 @@ export const InteractiveLineChart: React.FC<InteractiveLineChartProps> = ({
         style={{ height }}
       >
         <span>No telemetry data available for this range.</span>
-        <span className="text-[10px] mt-1 text-stone-400">Connect hardware or enable Demo Mode.</span>
+        <span className="text-[10px] mt-1 text-stone-400">Connect STM32 to stream telemetry and visualize trends.</span>
       </div>
     );
   }

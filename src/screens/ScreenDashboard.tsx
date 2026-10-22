@@ -21,30 +21,49 @@ export const ScreenDashboard: React.FC = () => {
   const {
     activeProfile,
     currentReading,
+    hasRealReading,
     history,
     connectionState,
     connectionProtocol,
     statusMessage,
-    isDemoMode,
     setActiveScreen,
     refreshReadings,
-    setScenario,
     tempUnit,
   } = usePlant();
 
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
 
-  const diagnostic = analyzeTelemetry(currentReading, activeProfile.thresholds, activeProfile.plantCode);
+  const realDiagnostic = analyzeTelemetry(currentReading, activeProfile.thresholds, activeProfile.plantCode);
 
-  const moistureHistory = history.map((h) => h.moisture);
-  const tempHistory = history.map((h) => h.temperature);
-  const humidityHistory = history.map((h) => h.humidity);
-  const lightHistory = history.map((h) => h.light);
+  const diagnostic = hasRealReading
+    ? realDiagnostic
+    : {
+        condition: 'None' as any,
+        headline: connectionState === 'connecting' ? 'Connecting to STM32...' : 'STM32 Disconnected',
+        explanation: 'Real sensor readings and ML predictions will display once STM32 is connected and transmitting telemetry.',
+        recommendedAction: 'Connect your STM32 via Cloud Bridge or Serial in Settings.',
+        color: {
+          bg: 'bg-stone-50/90',
+          border: 'border-cream-200',
+          text: 'text-stone-800',
+          badge: 'bg-stone-100 text-stone-500 border-stone-200',
+          ring: '#E5E7EB',
+        },
+        healthScore: 0,
+        mlClassCode: undefined,
+      };
 
-  const displayTemp = tempUnit === 'F'
-    ? parseFloat(((currentReading.temperature * 9) / 5 + 32).toFixed(1))
-    : currentReading.temperature;
+  const moistureHistory = hasRealReading ? history.map((h) => h.moisture) : [];
+  const tempHistory = hasRealReading ? history.map((h) => h.temperature) : [];
+  const humidityHistory = hasRealReading ? history.map((h) => h.humidity) : [];
+  const lightHistory = hasRealReading ? history.map((h) => h.light) : [];
+
+  const displayTemp = hasRealReading
+    ? tempUnit === 'F'
+      ? parseFloat(((currentReading.temperature * 9) / 5 + 32).toFixed(1))
+      : currentReading.temperature
+    : null;
 
   const displayTempMin = tempUnit === 'F'
     ? Math.round((activeProfile.thresholds.tempMin * 9) / 5 + 32)
@@ -64,17 +83,19 @@ export const ScreenDashboard: React.FC = () => {
     <div className="space-y-4 pb-20">
       {/* Plant-Health Hero Card with ML Model Output */}
       <div className="bg-white rounded-3xl border border-cream-200 p-5 shadow-card relative overflow-hidden">
-        <div
-          className="absolute -top-12 -right-12 w-48 h-48 rounded-full blur-3xl pointer-events-none opacity-40"
-          style={{
-            backgroundColor:
-              diagnostic.mlClassCode === 2
-                ? '#52B788'
-                : diagnostic.mlClassCode === 1
-                ? '#E9C46A'
-                : '#E76F51',
-          }}
-        />
+        {hasRealReading && (
+          <div
+            className="absolute -top-12 -right-12 w-48 h-48 rounded-full blur-3xl pointer-events-none opacity-40"
+            style={{
+              backgroundColor:
+                diagnostic.mlClassCode === 2
+                  ? '#52B788'
+                  : diagnostic.mlClassCode === 1
+                  ? '#E9C46A'
+                  : '#E76F51',
+            }}
+          />
+        )}
 
         <div className="flex items-start justify-between relative z-10 mb-4">
           <div className="space-y-1">
@@ -82,7 +103,7 @@ export const ScreenDashboard: React.FC = () => {
               <span className="text-[11px] font-bold uppercase tracking-wider text-forest-600/80">
                 Plant Health Status
               </span>
-              <span className="text-[10px] px-2 py-0.5 rounded-full bg-forest-50 border border-forest-200 text-forest-700 font-semibold">
+              <span className={`text-[10px] px-2 py-0.5 rounded-full border font-semibold ${diagnostic.color.badge}`}>
                 {diagnostic.condition}
               </span>
             </div>
@@ -98,9 +119,10 @@ export const ScreenDashboard: React.FC = () => {
             condition={diagnostic.condition}
             healthScore={diagnostic.healthScore}
             mlClassCode={diagnostic.mlClassCode}
-            confidence={currentReading.confidence}
+            confidence={hasRealReading ? currentReading.confidence : undefined}
             size={105}
             strokeWidth={8}
+            hasData={hasRealReading}
           />
         </div>
 
@@ -152,7 +174,7 @@ export const ScreenDashboard: React.FC = () => {
             Environmental Telemetry ({activeProfile.name})
           </h3>
           <span className="text-[11px] text-stone-500">
-            Live readings for your plant's environment
+            {hasRealReading ? 'Live readings from STM32 Black Pill' : 'Awaiting sensor connection'}
           </span>
         </div>
 
@@ -170,7 +192,8 @@ export const ScreenDashboard: React.FC = () => {
       <div className="grid grid-cols-2 gap-3">
         <SensorCard
           title="Soil Moisture"
-          value={currentReading.moisture}
+          value={hasRealReading ? currentReading.moisture : null}
+          hasData={hasRealReading}
           unit="%"
           minTarget={activeProfile.thresholds.moistureMin}
           maxTarget={activeProfile.thresholds.moistureMax}
@@ -184,6 +207,7 @@ export const ScreenDashboard: React.FC = () => {
           title="Temperature"
           subtitle="25°C Assumed • No Sensor"
           value={displayTemp}
+          hasData={hasRealReading}
           unit={tempUnit === 'F' ? '°F' : '°C'}
           minTarget={displayTempMin}
           maxTarget={displayTempMax}
@@ -195,7 +219,8 @@ export const ScreenDashboard: React.FC = () => {
 
         <SensorCard
           title="Air Humidity"
-          value={currentReading.humidity}
+          value={hasRealReading ? currentReading.humidity : null}
+          hasData={hasRealReading}
           unit="%"
           minTarget={activeProfile.thresholds.humidityMin}
           maxTarget={activeProfile.thresholds.humidityMax}
@@ -207,7 +232,8 @@ export const ScreenDashboard: React.FC = () => {
 
         <SensorCard
           title="Sunlight"
-          value={currentReading.light}
+          value={hasRealReading ? currentReading.light : null}
+          hasData={hasRealReading}
           unit="Lux"
           minTarget={activeProfile.thresholds.lightMin}
           maxTarget={activeProfile.thresholds.lightMax}
@@ -218,90 +244,50 @@ export const ScreenDashboard: React.FC = () => {
         />
       </div>
 
-      {/* Bottom Mode Strip: Simulation Presets vs Live Hardware Link */}
-      {isDemoMode ? (
-        <div className="bg-amber-50/70 border border-amber-200/80 rounded-2xl p-3.5 space-y-2">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-1.5">
-              <Sparkles className="w-4 h-4 text-emerald-700" />
-              <span className="text-xs font-bold text-forest-900 uppercase tracking-wider">
-                Simulation Presets
-              </span>
-            </div>
-            <span className="text-[10px] text-forest-800 font-semibold bg-white/80 px-2 py-0.5 rounded-full border border-forest-300">
-              {activeProfile.name}
+      {/* Hardware Status & Link Strip */}
+      <div className={`p-3.5 rounded-2xl border transition-all ${
+        hasRealReading
+          ? 'bg-emerald-50/80 border-emerald-200'
+          : 'bg-stone-50 border-stone-200'
+      }`}>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-1.5">
+            <Bluetooth className={`w-4 h-4 ${hasRealReading ? 'text-emerald-700' : 'text-stone-500'}`} />
+            <span className={`text-xs font-bold uppercase tracking-wider ${hasRealReading ? 'text-emerald-950' : 'text-stone-800'}`}>
+              Hardware Link: {connectionProtocol.toUpperCase()}
             </span>
           </div>
-          <p className="text-[11px] text-stone-600 leading-snug">
-            Test how your plant responds to different environmental conditions:
-          </p>
-
-          <div className="grid grid-cols-4 gap-1.5 pt-1">
-            <button
-              onClick={() => setScenario('dataset_suitable')}
-              className="py-1.5 px-2 rounded-xl text-[11px] font-semibold bg-white border border-emerald-300 text-emerald-800 hover:bg-emerald-50 transition-all text-center shadow-soft"
-            >
-              Optimal
-            </button>
-            <button
-              onClick={() => setScenario('dataset_moderate')}
-              className="py-1.5 px-2 rounded-xl text-[11px] font-semibold bg-white border border-amber-300 text-amber-800 hover:bg-amber-50 transition-all text-center shadow-soft"
-            >
-              Needs Care
-            </button>
-            <button
-              onClick={() => setScenario('dataset_high_stress')}
-              className="py-1.5 px-2 rounded-xl text-[11px] font-semibold bg-white border border-rose-300 text-rose-800 hover:bg-rose-50 transition-all text-center shadow-soft"
-            >
-              High Stress
-            </button>
-            <button
-              onClick={() => setScenario('dataset_stream')}
-              className="py-1.5 px-2 rounded-xl text-[11px] font-semibold bg-forest-700 border border-forest-800 text-white hover:bg-forest-800 transition-all text-center shadow-soft"
-            >
-              Cycle Next ▶
-            </button>
-          </div>
+          <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border ${
+            hasRealReading
+              ? 'bg-emerald-100 border-emerald-300 text-emerald-800'
+              : connectionState === 'connected'
+              ? 'bg-blue-100 border-blue-300 text-blue-800'
+              : 'bg-stone-200 border-stone-300 text-stone-600'
+          }`}>
+            {hasRealReading ? 'STM32 Online' : connectionState === 'connected' ? 'Listening...' : 'Offline'}
+          </span>
         </div>
-      ) : (
-        <div className="bg-emerald-50/80 border border-emerald-200 rounded-2xl p-3.5 space-y-2">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-1.5">
-              <Bluetooth className="w-4 h-4 text-emerald-700" />
-              <span className="text-xs font-bold text-emerald-950 uppercase tracking-wider">
-                Hardware Mode Active ({connectionProtocol.toUpperCase()})
-              </span>
-            </div>
-            <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border ${
-              connectionState === 'connected'
-                ? 'bg-emerald-100 border-emerald-300 text-emerald-800'
-                : 'bg-amber-100 border-amber-300 text-amber-800'
-            }`}>
-              {connectionState === 'connected' ? 'Hardware Online' : 'Waiting for Data'}
-            </span>
-          </div>
 
-          <p className="text-[11px] text-emerald-800 leading-snug">
-            {connectionState === 'connected'
-              ? currentReading.isSynthetic
-                ? 'Cloud Bridge connected! Waiting for first telemetry packet from Android bridge...'
-                : 'Authentic sensor telemetry is streaming from your STM32F401 Black Pill.'
-              : statusMessage}
-          </p>
+        <p className="text-[11px] text-stone-600 mt-1.5 leading-snug">
+          {hasRealReading
+            ? 'Authentic sensor telemetry is streaming from your STM32F401 Black Pill and powering ML predictions.'
+            : connectionState === 'connected'
+            ? 'Bridge connected. Waiting for first live sensor reading from STM32 hardware...'
+            : 'Hardware is not connected. Sensor readings and AI predictions will display as soon as your device connects.'}
+        </p>
 
-          <div className="flex items-center justify-between pt-1 text-[11px]">
-            <button
-              onClick={() => setActiveScreen('settings')}
-              className="text-forest-700 font-semibold underline underline-offset-2 hover:text-forest-900"
-            >
-              Open Link & Ingestion Settings →
-            </button>
-            <span className="text-stone-500 text-[10px]">
-              Assumed Baseline: 25°C
-            </span>
-          </div>
+        <div className="flex items-center justify-between pt-2 text-[11px]">
+          <button
+            onClick={() => setActiveScreen('settings')}
+            className="text-forest-700 font-semibold underline underline-offset-2 hover:text-forest-900"
+          >
+            Manage Device Connection & Settings →
+          </button>
+          <span className="text-stone-400 text-[10px]">
+            Baseline: 25°C Assumed
+          </span>
         </div>
-      )}
+      </div>
 
       <EditPlantModal isOpen={isEditOpen} onClose={() => setIsEditOpen(false)} />
     </div>

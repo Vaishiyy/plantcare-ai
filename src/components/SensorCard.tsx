@@ -5,7 +5,7 @@ import { LucideIcon } from 'lucide-react';
 interface SensorCardProps {
   title: string;
   subtitle?: string;
-  value: number;
+  value?: number | null;
   unit: string;
   minTarget: number;
   maxTarget: number;
@@ -13,6 +13,7 @@ interface SensorCardProps {
   sparklineData: number[];
   colorTheme: 'moisture' | 'temperature' | 'humidity' | 'light';
   onClick?: () => void;
+  hasData?: boolean;
 }
 
 export const SensorCard: React.FC<SensorCardProps> = ({
@@ -26,50 +27,61 @@ export const SensorCard: React.FC<SensorCardProps> = ({
   sparklineData,
   colorTheme,
   onClick,
+  hasData = true,
 }) => {
+  const isAvailable = hasData && typeof value === 'number' && !isNaN(value);
+
   // Determine status relative to species target
   let status: 'optimal' | 'low' | 'high' | 'critical_low' | 'critical_high' = 'optimal';
-  if (value < minTarget * 0.5) {
-    status = 'critical_low';
-  } else if (value < minTarget) {
-    status = 'low';
-  } else if (value > maxTarget * 1.3) {
-    status = 'critical_high';
-  } else if (value > maxTarget) {
-    status = 'high';
+  if (isAvailable && typeof value === 'number') {
+    if (value < minTarget * 0.5) {
+      status = 'critical_low';
+    } else if (value < minTarget) {
+      status = 'low';
+    } else if (value > maxTarget * 1.3) {
+      status = 'critical_high';
+    } else if (value > maxTarget) {
+      status = 'high';
+    }
   }
 
   // Visual status pill configuration
-  let statusLabel = 'Optimal';
-  let statusPillClass = 'bg-emerald-50 text-emerald-800 border-emerald-200';
-  let sparkColor = '#2D6A4F';
+  let statusLabel = 'None';
+  let statusPillClass = 'bg-stone-100 text-stone-500 border-stone-200';
+  let sparkColor = '#D1D5DB';
 
-  switch (status) {
-    case 'optimal':
-      statusLabel = 'Optimal';
-      statusPillClass = 'bg-emerald-50 text-emerald-800 border-emerald-200';
-      sparkColor = '#10B981';
-      break;
-    case 'low':
-      statusLabel = 'Low';
-      statusPillClass = 'bg-amber-50 text-amber-800 border-amber-200';
-      sparkColor = '#F59E0B';
-      break;
-    case 'critical_low':
-      statusLabel = 'Too Dry';
-      statusPillClass = 'bg-orange-50 text-orange-800 border-orange-200';
-      sparkColor = '#EA580C';
-      break;
-    case 'high':
-      statusLabel = 'High';
-      statusPillClass = 'bg-amber-50 text-amber-800 border-amber-200';
-      sparkColor = '#F59E0B';
-      break;
-    case 'critical_high':
-      statusLabel = 'Excessive';
-      statusPillClass = 'bg-rose-50 text-rose-800 border-rose-200';
-      sparkColor = '#E11D48';
-      break;
+  if (!isAvailable) {
+    statusLabel = 'None';
+    statusPillClass = 'bg-stone-100 text-stone-500 border-stone-200';
+    sparkColor = '#D1D5DB';
+  } else {
+    switch (status) {
+      case 'optimal':
+        statusLabel = 'Optimal';
+        statusPillClass = 'bg-emerald-50 text-emerald-800 border-emerald-200';
+        sparkColor = '#10B981';
+        break;
+      case 'low':
+        statusLabel = 'Low';
+        statusPillClass = 'bg-amber-50 text-amber-800 border-amber-200';
+        sparkColor = '#F59E0B';
+        break;
+      case 'critical_low':
+        statusLabel = 'Too Dry';
+        statusPillClass = 'bg-orange-50 text-orange-800 border-orange-200';
+        sparkColor = '#EA580C';
+        break;
+      case 'high':
+        statusLabel = 'High';
+        statusPillClass = 'bg-amber-50 text-amber-800 border-amber-200';
+        sparkColor = '#F59E0B';
+        break;
+      case 'critical_high':
+        statusLabel = 'Excessive';
+        statusPillClass = 'bg-rose-50 text-rose-800 border-rose-200';
+        sparkColor = '#E11D48';
+        break;
+    }
   }
 
   // Theme icons & tints

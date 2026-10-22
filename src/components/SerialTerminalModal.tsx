@@ -10,7 +10,7 @@ interface SerialTerminalModalProps {
 export const SerialTerminalModal: React.FC<SerialTerminalModalProps> = ({ isOpen, onClose }) => {
   const { serialLogs, injectManualPacket, connectionProtocol, connectionState, activeProfile } = usePlant();
   const [customInput, setCustomInput] = useState<string>(
-    '{"moisture": 25.5, "temperature": 24.5, "humidity": 50.2, "light": 3200, "condition": "Suitable"}'
+    'PLANT=ALOE_VERA,ML_CLASS=0,ML_STATUS=HIGH STRESS,TEMP_C_ASSUMED=25,SOIL_PCT=0,HUM_RH_EST=20,HUM_ADC=4041,SOIL_RAW=4095,LDR_ADC=1827,POT_ADC=1237,SW1=0,SW2=0'
   );
   const [injectResult, setInjectResult] = useState<string | null>(null);
 
@@ -22,13 +22,13 @@ export const SerialTerminalModal: React.FC<SerialTerminalModalProps> = ({ isOpen
     if (ok) {
       setInjectResult('Packet parsed & plant health evaluated!');
     } else {
-      setInjectResult('Parse error: ensure payload matches JSON format.');
+      setInjectResult('Parse error: ensure payload matches format (PLANT=...,SOIL_PCT=...).');
     }
     setTimeout(() => setInjectResult(null), 3000);
   };
 
-  const loadPreset = (json: string) => {
-    setCustomInput(json);
+  const loadPreset = (formatStr: string) => {
+    setCustomInput(formatStr);
   };
 
   return (
@@ -56,28 +56,20 @@ export const SerialTerminalModal: React.FC<SerialTerminalModalProps> = ({ isOpen
           </div>
         </div>
 
-        {/* Preset sample buttons matching the user's dataset */}
+        {/* Preset sample buttons matching the user's STM32 format */}
         <div className="px-3 py-2 bg-stone-900/90 border-b border-stone-800 flex items-center gap-1.5 overflow-x-auto text-[11px] font-mono">
           <span className="text-stone-400 text-[10px] whitespace-nowrap">Care Presets:</span>
           <button
             onClick={() =>
-              loadPreset('{"moisture": 25.0, "temperature": 24.5, "humidity": 48.0, "light": 3400, "condition": "Suitable"}')
+              loadPreset('PLANT=ALOE_VERA,ML_CLASS=0,ML_STATUS=HIGH STRESS,TEMP_C_ASSUMED=25,SOIL_PCT=0,HUM_RH_EST=20,HUM_ADC=4041,SOIL_RAW=4095,LDR_ADC=1827,POT_ADC=1237,SW1=0,SW2=0')
             }
-            className="px-2 py-1 rounded bg-stone-800 hover:bg-stone-700 text-emerald-300 whitespace-nowrap"
+            className="px-2 py-1 rounded bg-stone-800 hover:bg-stone-700 text-rose-300 whitespace-nowrap"
           >
-            Aloe Healthy
+            High Stress
           </button>
           <button
             onClick={() =>
-              loadPreset('{"moisture": 52.0, "temperature": 22.5, "humidity": 65.0, "light": 1800, "condition": "Suitable"}')
-            }
-            className="px-2 py-1 rounded bg-stone-800 hover:bg-stone-700 text-emerald-300 whitespace-nowrap"
-          >
-            Pothos Healthy
-          </button>
-          <button
-            onClick={() =>
-              loadPreset('{"moisture": 49.0, "temperature": 33.4, "humidity": 48.8, "light": 2161, "condition": "Moderate Stress"}')
+              loadPreset('PLANT=ALOE_VERA,ML_CLASS=1,ML_STATUS=MODERATE STRESS,TEMP_C_ASSUMED=25,SOIL_PCT=28,HUM_RH_EST=45,HUM_ADC=3200,SOIL_RAW=3100,LDR_ADC=2100,POT_ADC=1500,SW1=0,SW2=0')
             }
             className="px-2 py-1 rounded bg-stone-800 hover:bg-stone-700 text-amber-300 whitespace-nowrap"
           >
@@ -85,11 +77,19 @@ export const SerialTerminalModal: React.FC<SerialTerminalModalProps> = ({ isOpen
           </button>
           <button
             onClick={() =>
-              loadPreset('{"moisture": 98.8, "temperature": 33.0, "humidity": 74.4, "light": 843, "condition": "High Stress"}')
+              loadPreset('PLANT=ALOE_VERA,ML_CLASS=2,ML_STATUS=SUITABLE,TEMP_C_ASSUMED=25,SOIL_PCT=22,HUM_RH_EST=48,HUM_ADC=2900,SOIL_RAW=2400,LDR_ADC=3100,POT_ADC=1800,SW1=0,SW2=0')
             }
-            className="px-2 py-1 rounded bg-stone-800 hover:bg-stone-700 text-rose-300 whitespace-nowrap"
+            className="px-2 py-1 rounded bg-stone-800 hover:bg-stone-700 text-emerald-300 whitespace-nowrap"
           >
-            High Stress
+            Aloe Suitable
+          </button>
+          <button
+            onClick={() =>
+              loadPreset('PLANT=GOLDEN_POTHOS,ML_CLASS=2,ML_STATUS=SUITABLE,TEMP_C_ASSUMED=25,SOIL_PCT=52,HUM_RH_EST=65,HUM_ADC=2200,SOIL_RAW=1800,LDR_ADC=1800,POT_ADC=2000,SW1=0,SW2=1')
+            }
+            className="px-2 py-1 rounded bg-stone-800 hover:bg-stone-700 text-emerald-300 whitespace-nowrap"
+          >
+            Pothos Suitable
           </button>
         </div>
 
@@ -137,7 +137,7 @@ export const SerialTerminalModal: React.FC<SerialTerminalModalProps> = ({ isOpen
         {/* Packet Injector Form */}
         <div className="p-3 bg-stone-900 border-t border-stone-800 space-y-2">
           <div className="flex items-center justify-between text-[11px] text-stone-400 font-mono">
-            <span>Manual Packet Injector (STM32 JSON Format):</span>
+            <span>Manual Packet Injector (STM32 Format):</span>
             {injectResult && (
               <span className="text-emerald-400 flex items-center gap-1 text-[10px]">
                 <CheckCircle2 className="w-3 h-3" /> {injectResult}
@@ -150,7 +150,7 @@ export const SerialTerminalModal: React.FC<SerialTerminalModalProps> = ({ isOpen
               type="text"
               value={customInput}
               onChange={(e) => setCustomInput(e.target.value)}
-              placeholder='{"moisture": 42, "temperature": 30.0, "humidity": 48, "light": 750, "condition": "Needs Water"}'
+              placeholder="PLANT=ALOE_VERA,ML_CLASS=0,ML_STATUS=HIGH STRESS,TEMP_C_ASSUMED=25,SOIL_PCT=0,HUM_RH_EST=20,HUM_ADC=4041,SOIL_RAW=4095,LDR_ADC=1827,POT_ADC=1237,SW1=0,SW2=0"
               className="flex-1 bg-stone-950 border border-stone-700 rounded-xl px-3 py-2 text-xs font-mono text-emerald-300 placeholder:text-stone-600 focus:outline-none focus:border-emerald-500"
             />
             <button

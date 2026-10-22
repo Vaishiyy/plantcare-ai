@@ -253,7 +253,7 @@ export const ScreenSettings: React.FC = () => {
                 <div className="flex items-center gap-1.5">
                   <input
                     type="text"
-                    placeholder="PLANT=ALOE_VERA,SOIL_PCT=45,HUM_RH_EST=55,LDR_ADC=2400..."
+                    placeholder="PLANT=ALOE_VERA,ML_CLASS=0,ML_STATUS=HIGH STRESS,TEMP_C_ASSUMED=25,SOIL_PCT=0..."
                     value={manualLineInput}
                     onChange={(e) => setManualLineInput(e.target.value)}
                     className="flex-1 px-2.5 py-1.5 rounded-xl border border-cream-300 bg-white text-xs font-mono"
@@ -276,7 +276,7 @@ export const ScreenSettings: React.FC = () => {
                   </button>
                 </div>
                 <p className="text-[10px] text-stone-500 leading-tight">
-                  Supports both STM32 key-value string (<code>PLANT=...,SOIL_PCT=...</code>) and JSON.
+                  Format: <code>PLANT=ALOE_VERA,ML_CLASS=0,ML_STATUS=HIGH STRESS,TEMP_C_ASSUMED=25,SOIL_PCT=0...</code>
                 </p>
               </div>
             </div>
@@ -338,29 +338,22 @@ export const ScreenSettings: React.FC = () => {
           </div>
         )}
 
-        {/* Demo Mode Toggle */}
+        {/* Hardware-Only Stream Info */}
         <div className="pt-3 border-t border-cream-200 flex items-center justify-between">
           <div>
             <div className="flex items-center gap-1.5">
-              <Radio className="w-4 h-4 text-amber-600" />
+              <Cpu className="w-4 h-4 text-forest-700" />
               <span className="text-xs font-bold text-stone-800">
-                Simulation Mode
+                Hardware Telemetry Mode
               </span>
             </div>
             <span className="text-[11px] text-stone-500 block">
-              Stream realistic botanical sensor conditions
+              Sensor readings and predictions strictly mirror live STM32 hardware
             </span>
           </div>
-
-          <label className="relative inline-flex items-center cursor-pointer">
-            <input
-              type="checkbox"
-              checked={isDemoMode}
-              onChange={(e) => setIsDemoMode(e.target.checked)}
-              className="sr-only peer"
-            />
-            <div className="w-11 h-6 bg-stone-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-stone-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-forest-600"></div>
-          </label>
+          <span className="text-[10px] font-semibold bg-emerald-50 text-emerald-800 border border-emerald-200 px-2 py-0.5 rounded-full">
+            Active
+          </span>
         </div>
 
         <div className="pt-2">
@@ -542,13 +535,7 @@ export const ScreenSettings: React.FC = () => {
                 1. STM32 UART Transmission Format (9600 baud, delimited by \r\n):
               </span>
               <pre className="p-3 bg-stone-900 text-emerald-300 rounded-2xl font-mono text-[11px] overflow-x-auto leading-relaxed">
-{`{
-  "moisture": 49.1,
-  "temperature": 33.4,
-  "humidity": 48.8,
-  "light": 2161,
-  "condition": "Moderate Stress"
-}`}
+PLANT=ALOE_VERA,ML_CLASS=0,ML_STATUS=HIGH STRESS,TEMP_C_ASSUMED=25,SOIL_PCT=0,HUM_RH_EST=20,HUM_ADC=4041,SOIL_RAW=4095,LDR_ADC=1827,POT_ADC=1237,SW1=0,SW2=0
               </pre>
             </div>
 
@@ -559,10 +546,10 @@ export const ScreenSettings: React.FC = () => {
               <pre className="p-3 bg-stone-900 text-sky-300 rounded-2xl font-mono text-[11px] overflow-x-auto leading-relaxed">
 {`POST /api/telemetry HTTP/1.1
 Host: plantcare-ai-mocha.vercel.app
-Content-Type: application/json
+Content-Type: text/plain
 Authorization: Bearer <DEVICE_AUTH_TOKEN>
 
-{"moisture":49.1,"temperature":33.4,"humidity":48.8,"light":2161,"condition":"Moderate Stress"}`}
+PLANT=ALOE_VERA,ML_CLASS=0,ML_STATUS=HIGH STRESS,TEMP_C_ASSUMED=25,SOIL_PCT=0,HUM_RH_EST=20,HUM_ADC=4041,SOIL_RAW=4095,LDR_ADC=1827,POT_ADC=1237,SW1=0,SW2=0`}
               </pre>
             </div>
           </div>

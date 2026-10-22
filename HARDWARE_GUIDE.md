@@ -76,15 +76,28 @@ Here is the C transmission loop for STM32CubeIDE:
 extern UART_HandleTypeDef huart2;
 extern ADC_HandleTypeDef hadc1;
 
-// Buffer for formatted JSON telemetry
-char tx_buffer[128];
+// Buffer for formatted STM32 telemetry
+char tx_buffer[256];
 
-void Send_Plant_Telemetry(uint8_t moisture, float temp, uint8_t humidity, uint16_t light, const char* condition)
+void Send_Plant_Telemetry(
+    const char* plant,
+    uint8_t ml_class,
+    const char* ml_status,
+    uint8_t temp_assumed,
+    uint8_t soil_pct,
+    uint8_t hum_rh_est,
+    uint16_t hum_adc,
+    uint16_t soil_raw,
+    uint16_t ldr_adc,
+    uint16_t pot_adc,
+    uint8_t sw1,
+    uint8_t sw2)
 {
-    // Format JSON matching PlantCare AI protocol specification
+    // Format string matching PlantCare AI STM32 protocol:
+    // PLANT=ALOE_VERA,ML_CLASS=0,ML_STATUS=HIGH STRESS,TEMP_C_ASSUMED=25,SOIL_PCT=0,HUM_RH_EST=20,HUM_ADC=4041,SOIL_RAW=4095,LDR_ADC=1827,POT_ADC=1237,SW1=0,SW2=0
     int len = snprintf(tx_buffer, sizeof(tx_buffer),
-        "{\"moisture\":%d,\"temperature\":%.1f,\"humidity\":%d,\"light\":%d,\"condition\":\"%s\"}\r\n",
-        moisture, temp, humidity, light, condition);
+        "PLANT=%s,ML_CLASS=%d,ML_STATUS=%s,TEMP_C_ASSUMED=%d,SOIL_PCT=%d,HUM_RH_EST=%d,HUM_ADC=%d,SOIL_RAW=%d,LDR_ADC=%d,POT_ADC=%d,SW1=%d,SW2=%d\r\n",
+        plant, ml_class, ml_status, temp_assumed, soil_pct, hum_rh_est, hum_adc, soil_raw, ldr_adc, pot_adc, sw1, sw2);
 
     // Transmit over UART to Bluetooth module
     HAL_UART_Transmit(&huart2, (uint8_t*)tx_buffer, len, 500);
@@ -101,27 +114,29 @@ int main(void)
 
     while (1)
     {
-        // 1. Read Analog Soil Moisture
-        uint16_t raw_moist = Read_ADC_Channel(ADC_CHANNEL_0);
-        uint8_t moisture_pct = Map_Soil_Moisture(raw_moist);
+        // 1. Read Analog Soil Moisture & Raw ADC
+        uint16_t soil_raw = Read_ADC_Channel(ADC_CHANNEL_0);
+        uint8_t soil_pct = Map_Soil_Moisture(soil_raw);
 
         // 2. Read Analog LDR
-        uint16_t raw_ldr = Read_ADC_Channel(ADC_CHANNEL_1);
-        uint16_t light_lux = Map_LDR_Lux(raw_ldr);
+        uint16_t ldr_adc = Read_ADC_Channel(ADC_CHANNEL_1);
 
-        // 3. Read DHT11
-        float temperature = 0.0f;
-        uint8_t humidity = 0;
-        DHT11_Read(&temperature, &humidity);
+        // 3. Read Humidity ADC & Potentiometer ADC
+        uint16_t hum_adc = Read_ADC_Channel(ADC_CHANNEL_2);
+        uint8_t hum_rh_est = Map_Humidity_RH(hum_adc);
+        uint16_t pot_adc = Read_ADC_Channel(ADC_CHANNEL_3);
 
-        // 4. Run Lightweight Embedded ML Condition Classifier
-        const char* predicted_condition = Predict_Plant_Condition(moisture_pct, temperature, humidity, light_lux);
+        // 4. Read User Switches
+        uint8_t sw1 = HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_0);
+        uint8_t sw2 = HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_1); // 0 = Aloe Vera, 1 = Pothos
+        const char* plant_name = (sw2 == 1) ? "POTHOS" : "ALOE_VERA";
 
-        // 5. Send packet over Bluetooth
-        Send_Plant_Telemetry(moisture_pct, temperature, humidity, light_lux, predicted_condition);
+        // 5. Evaluate Embedded Decision Tree ML Classifier
+        uint8_t ml_class = Predict_Plant_ML_Class(sw2, soil_pct, 25, hum_rh_est, ldr_adc);
+        const char* ml_status = (ml_class == 2) ? "SUITABLE" : (ml_class == 1) ? "MODERATE STRESS" : "HIGH STRESS";
 
-        // 6. Update local I2C OLED display
-        OLED_Update(moisture_pct, temperature, humidity, light_lux, predicted_condition);
+        // 6. Send packet over Bluetooth UART
+        Send_Plant_Telemetry(plant_name, ml_class, ml_status, 25, soil_pct, hum_rh_est, hum_adc, soil_raw, ldr_adc, pot_adc, sw1, sw2);
 
         // Transmit every 3 seconds
         HAL_Delay(3000);

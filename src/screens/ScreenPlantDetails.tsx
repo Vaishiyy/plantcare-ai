@@ -20,6 +20,7 @@ export const ScreenPlantDetails: React.FC = () => {
     profiles,
     selectProfile,
     currentReading,
+    hasRealReading,
     tempUnit,
   } = usePlant();
 
@@ -209,18 +210,22 @@ export const ScreenPlantDetails: React.FC = () => {
 
             <div className="text-right">
               <span className="text-base font-bold font-display text-forest-900">
-                {currentReading.moisture}%
+                {hasRealReading ? `${currentReading.moisture}%` : '--'}
               </span>
               <span
                 className={`text-[10px] font-semibold block ${
-                  currentReading.moisture < activeProfile.thresholds.moistureMin
+                  !hasRealReading
+                    ? 'text-stone-400'
+                    : currentReading.moisture < activeProfile.thresholds.moistureMin
                     ? 'text-amber-700'
                     : currentReading.moisture > activeProfile.thresholds.moistureMax
                     ? 'text-rose-700'
                     : 'text-emerald-700'
                 }`}
               >
-                {currentReading.moisture < activeProfile.thresholds.moistureMin
+                {!hasRealReading
+                  ? 'Awaiting STM32'
+                  : currentReading.moisture < activeProfile.thresholds.moistureMin
                   ? 'Dry Soil'
                   : currentReading.moisture > activeProfile.thresholds.moistureMax
                   ? 'Overwatered'
@@ -237,10 +242,12 @@ export const ScreenPlantDetails: React.FC = () => {
                 width: `${activeProfile.thresholds.moistureMax - activeProfile.thresholds.moistureMin}%`,
               }}
             />
-            <div
-              className="absolute top-1/2 -translate-y-1/2 w-3.5 h-3.5 rounded-full bg-forest-800 ring-2 ring-white shadow-sm transition-all duration-500"
-              style={{ left: `calc(${currentReading.moisture}% - 7px)` }}
-            />
+            {hasRealReading && (
+              <div
+                className="absolute top-1/2 -translate-y-1/2 w-3.5 h-3.5 rounded-full bg-forest-800 ring-2 ring-white shadow-sm transition-all duration-500"
+                style={{ left: `calc(${currentReading.moisture}% - 7px)` }}
+              />
+            )}
           </div>
         </div>
 
@@ -261,20 +268,24 @@ export const ScreenPlantDetails: React.FC = () => {
 
             <div className="text-right">
               <span className="text-base font-bold font-display text-forest-900">
-                {displayTemp}°{tempUnit}
+                {hasRealReading ? `${displayTemp}°${tempUnit}` : '--'}
               </span>
               <span
                 className={`text-[10px] font-semibold block ${
-                  displayTemp < displayTempMin
+                  !hasRealReading
+                    ? 'text-stone-400'
+                    : (displayTemp ?? 0) < displayTempMin
                     ? 'text-blue-700'
-                    : displayTemp > displayTempMax
+                    : (displayTemp ?? 0) > displayTempMax
                     ? 'text-rose-700'
                     : 'text-emerald-700'
                 }`}
               >
-                {displayTemp < displayTempMin
+                {!hasRealReading
+                  ? 'Awaiting STM32'
+                  : (displayTemp ?? 0) < displayTempMin
                   ? 'Cold Stress'
-                  : displayTemp > displayTempMax
+                  : (displayTemp ?? 0) > displayTempMax
                   ? 'Heat Stress'
                   : 'In Range'}
               </span>
@@ -286,12 +297,14 @@ export const ScreenPlantDetails: React.FC = () => {
               className="absolute top-0 bottom-0 bg-emerald-400 opacity-60 rounded-full"
               style={{ left: '30%', width: '40%' }}
             />
-            <div
-              className="absolute top-1/2 -translate-y-1/2 w-3.5 h-3.5 rounded-full bg-forest-800 ring-2 ring-white shadow-sm transition-all duration-500"
-              style={{
-                left: `${calculateGaugePct(displayTemp, displayTempMin, displayTempMax)}%`,
-              }}
-            />
+            {hasRealReading && (
+              <div
+                className="absolute top-1/2 -translate-y-1/2 w-3.5 h-3.5 rounded-full bg-forest-800 ring-2 ring-white shadow-sm transition-all duration-500"
+                style={{
+                  left: `${calculateGaugePct(displayTemp || 25, displayTempMin, displayTempMax)}%`,
+                }}
+              />
+            )}
           </div>
         </div>
 
@@ -312,18 +325,22 @@ export const ScreenPlantDetails: React.FC = () => {
 
             <div className="text-right">
               <span className="text-base font-bold font-display text-forest-900">
-                {currentReading.humidity}%
+                {hasRealReading ? `${currentReading.humidity}%` : '--'}
               </span>
               <span
                 className={`text-[10px] font-semibold block ${
-                  currentReading.humidity < activeProfile.thresholds.humidityMin
+                  !hasRealReading
+                    ? 'text-stone-400'
+                    : currentReading.humidity < activeProfile.thresholds.humidityMin
                     ? 'text-amber-700'
                     : currentReading.humidity > activeProfile.thresholds.humidityMax
                     ? 'text-teal-700'
                     : 'text-emerald-700'
                 }`}
               >
-                {currentReading.humidity < activeProfile.thresholds.humidityMin
+                {!hasRealReading
+                  ? 'Awaiting STM32'
+                  : currentReading.humidity < activeProfile.thresholds.humidityMin
                   ? 'Dry Air'
                   : currentReading.humidity > activeProfile.thresholds.humidityMax
                   ? 'High Humidity'
@@ -340,10 +357,12 @@ export const ScreenPlantDetails: React.FC = () => {
                 width: `${activeProfile.thresholds.humidityMax - activeProfile.thresholds.humidityMin}%`,
               }}
             />
-            <div
-              className="absolute top-1/2 -translate-y-1/2 w-3.5 h-3.5 rounded-full bg-forest-800 ring-2 ring-white shadow-sm transition-all duration-500"
-              style={{ left: `calc(${currentReading.humidity}% - 7px)` }}
-            />
+            {hasRealReading && (
+              <div
+                className="absolute top-1/2 -translate-y-1/2 w-3.5 h-3.5 rounded-full bg-forest-800 ring-2 ring-white shadow-sm transition-all duration-500"
+                style={{ left: `calc(${currentReading.humidity}% - 7px)` }}
+              />
+            )}
           </div>
         </div>
 
@@ -364,18 +383,22 @@ export const ScreenPlantDetails: React.FC = () => {
 
             <div className="text-right">
               <span className="text-base font-bold font-display text-forest-900">
-                {currentReading.light}
+                {hasRealReading ? currentReading.light : '--'}
               </span>
               <span
                 className={`text-[10px] font-semibold block ${
-                  currentReading.light < activeProfile.thresholds.lightMin
+                  !hasRealReading
+                    ? 'text-stone-400'
+                    : currentReading.light < activeProfile.thresholds.lightMin
                     ? 'text-amber-700'
                     : currentReading.light > activeProfile.thresholds.lightMax
                     ? 'text-orange-700'
                     : 'text-emerald-700'
                 }`}
               >
-                {currentReading.light < activeProfile.thresholds.lightMin
+                {!hasRealReading
+                  ? 'Awaiting STM32'
+                  : currentReading.light < activeProfile.thresholds.lightMin
                   ? 'Low Light'
                   : currentReading.light > activeProfile.thresholds.lightMax
                   ? 'High Light'
@@ -392,12 +415,14 @@ export const ScreenPlantDetails: React.FC = () => {
                 width: `${((activeProfile.thresholds.lightMax - activeProfile.thresholds.lightMin) / 4095) * 100}%`,
               }}
             />
-            <div
-              className="absolute top-1/2 -translate-y-1/2 w-3.5 h-3.5 rounded-full bg-forest-800 ring-2 ring-white shadow-sm transition-all duration-500"
-              style={{
-                left: `${(currentReading.light / 4095) * 100}%`,
-              }}
-            />
+            {hasRealReading && (
+              <div
+                className="absolute top-1/2 -translate-y-1/2 w-3.5 h-3.5 rounded-full bg-forest-800 ring-2 ring-white shadow-sm transition-all duration-500"
+                style={{
+                  left: `${(currentReading.light / 4095) * 100}%`,
+                }}
+              />
+            )}
           </div>
         </div>
       </div>

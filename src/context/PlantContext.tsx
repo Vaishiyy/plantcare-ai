@@ -33,6 +33,7 @@ interface PlantContextType {
   updateActiveProfile: (updated: Partial<PlantProfile>) => void;
 
   currentReading: SensorReading;
+  hasRealReading: boolean;
   history: SensorReading[];
   refreshReadings: () => void;
   checkPlantHealth: () => void;
@@ -73,6 +74,20 @@ interface PlantContextType {
 
 const PlantContext = createContext<PlantContextType | null>(null);
 
+const EMPTY_READING: SensorReading = {
+  moisture: 0,
+  temperature: 0,
+  humidity: 0,
+  light: 0,
+  condition: 'None',
+  suitabilityClass: 'suitable',
+  mlClassCode: 2,
+  timestamp: 0,
+  confidence: 0,
+  isSynthetic: false,
+  isTempAssumed: true,
+};
+
 export const PlantProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [activeScreen, setActiveScreen] = useState<ActiveScreen>('dashboard');
 
@@ -82,7 +97,7 @@ export const PlantProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   const [connectionState, setConnectionState] = useState<ConnectionState>('disconnected');
   const [connectionProtocol, setConnectionProtocolState] = useState<ConnectionProtocol>(() => {
-    return (localStorage.getItem('plant_connection_protocol') as ConnectionProtocol) || 'demo';
+    return (localStorage.getItem('plant_connection_protocol') as ConnectionProtocol) || 'cloud';
   });
 
   const setConnectionProtocol = useCallback((protocol: ConnectionProtocol) => {
@@ -91,27 +106,24 @@ export const PlantProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   }, []);
 
   const [connectedDeviceName, setConnectedDeviceName] = useState<string | null>(null);
-  const [statusMessage, setStatusMessage] = useState<string>('Streaming from ML Training Dataset');
+  const [statusMessage, setStatusMessage] = useState<string>('Awaiting connection from STM32');
   const [serialLogs, setSerialLogs] = useState<SerialLogEntry[]>([]);
 
-  const [isDemoMode, setIsDemoModeState] = useState<boolean>(() => {
-    const savedProtocol = localStorage.getItem('plant_connection_protocol');
-    if (savedProtocol === 'cloud' || savedProtocol === 'serial' || savedProtocol === 'ble') {
-      return false;
-    }
-    return StorageService.getDemoMode();
-  });
+  // Demo mode is completely disabled — strictly hardware readings only when STM32 is connected
+  const [isDemoMode] = useState<boolean>(false);
   const [activeScenario, setActiveScenario] = useState<DemoScenario>('dataset_stream');
 
-  const [currentReading, setCurrentReading] = useState<SensorReading>(() => {
-    return demoDataService.getCurrentReading();
-  });
+  const [currentReading, setCurrentReading] = useState<SensorReading>(EMPTY_READING);
 
   const [history, setHistory] = useState<SensorReading[]>(() => {
     const saved = StorageService.getTelemetryHistory();
-    if (saved && saved.length > 5) return saved;
-    return demoDataService.generateHistory(activeProfile.thresholds, activeProfile.plantCode, 60);
+    if (saved && saved.length > 0) {
+      return saved.filter((s) => !s.isSynthetic && s.timestamp > 0);
+    }
+    return [];
   });
+
+  const hasRealReading = connectionState === 'connected' && currentReading.timestamp > 0;
 
   const [refreshInterval, setRefreshIntervalState] = useState<number>(() => StorageService.getRefreshInterval());
   const [tempUnit, setTempUnitState] = useState<'C' | 'F'>(() => StorageService.getTempUnit());
@@ -125,7 +137,7 @@ export const PlantProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     return () => clearInterval(timer);
   }, []);
 
-  const isStale = connectionState !== 'connected' && !isDemoMode && now - currentReading.timestamp > 30000;
+  const isStale = hasRealReading && connectionState !== 'connected' && now - currentReading.timestamp > 30000;
 
   const addLog = useCallback((direction: 'in' | 'out' | 'sys', text: string) => {
     setSerialLogs((prev) => [
@@ -224,11 +236,10 @@ export const PlantProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         if (status === 'connected') {
           setConnectedDeviceName(webBluetooth.getDeviceName() || 'STM32-Plant-BLE');
           setConnectionProtocol('ble');
-          setIsDemoModeState(false);
-          StorageService.saveDemoMode(false);
           addLog('sys', `BLE connected: ${webBluetooth.getDeviceName() || 'STM32'}`);
         } else if (status === 'disconnected') {
           setConnectedDeviceName(null);
+          setCurrentReading(EMPTY_READING);
           addLog('sys', 'BLE connection closed');
         }
         if (msg) setStatusMessage(msg);
@@ -242,11 +253,10 @@ export const PlantProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         if (status === 'connected') {
           setConnectedDeviceName('STM32 Serial / HC-05');
           setConnectionProtocol('serial');
-          setIsDemoModeState(false);
-          StorageService.saveDemoMode(false);
           addLog('sys', 'Serial port opened');
         } else if (status === 'disconnected') {
           setConnectedDeviceName(null);
+          setCurrentReading(EMPTY_READING);
           addLog('sys', 'Serial port disconnected');
         }
         if (msg) setStatusMessage(msg);
@@ -254,48 +264,18 @@ export const PlantProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     );
   }, [handleIncomingReading, addLog]);
 
-  // Demo stream using actual dataset records
-  useEffect(() => {
-    if (!isDemoMode || connectionState === 'connected' || connectionProtocol === 'cloud') return;
-
-    const interval = setInterval(() => {
-      let reading: SensorReading;
-      if (activeScenario === 'dataset_stream') {
-        reading = demoDataService.getNextDatasetRow(activeProfile.plantCode, activeProfile.thresholds);
-      } else {
-        reading = demoDataService.setScenario(activeScenario, activeProfile.thresholds, activeProfile.plantCode);
-      }
-      handleIncomingReading(reading);
-    }, refreshInterval);
-
-    return () => clearInterval(interval);
-  }, [isDemoMode, connectionState, connectionProtocol, activeScenario, activeProfile, refreshInterval, handleIncomingReading]);
-
-  const setIsDemoMode = (enabled: boolean) => {
-    setIsDemoModeState(enabled);
-    StorageService.saveDemoMode(enabled);
-    if (enabled) {
-      if (connectionState === 'connected') disconnectHardware();
-      setConnectionProtocol('demo');
-      setStatusMessage('Simulation Mode: Streaming plant care telemetry');
-      addLog('sys', 'Simulation Mode active');
-    } else {
-      setStatusMessage('Hardware Mode active. Ready to connect device.');
-      addLog('sys', 'Hardware Mode active');
-    }
+  // Demo stream disabled — hardware readings only
+  const setIsDemoMode = (_enabled: boolean) => {
+    // Demo mode disabled
   };
 
-  const setScenario = (scenario: DemoScenario) => {
-    setActiveScenario(scenario);
-    const reading = demoDataService.setScenario(scenario, activeProfile.thresholds, activeProfile.plantCode);
-    handleIncomingReading(reading);
-    addLog('sys', `Scenario set to "${scenario}" (Dataset Row #${reading.datasetRowIndex ?? 0})`);
+  const setScenario = (_scenario: DemoScenario) => {
+    // Demo scenarios disabled in hardware-only mode
   };
 
   const refreshReadings = () => {
-    if (isDemoMode) {
-      const reading = demoDataService.getNextDatasetRow(activeProfile.plantCode, activeProfile.thresholds);
-      handleIncomingReading(reading);
+    if (connectionProtocol === 'cloud') {
+      connectCloud();
     } else {
       setStatusMessage('Requesting reading from STM32...');
       addLog('out', '{"cmd":"READ"}');
@@ -330,8 +310,6 @@ export const PlantProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     setStatusMessage('Connecting to Cloud Bridge...');
     setConnectionState('connecting');
     setConnectionProtocol('cloud');
-    setIsDemoModeState(false);
-    StorageService.saveDemoMode(false);
 
     const res = await cloudTelemetry.getLatest();
     if (res && res.success) {
@@ -380,29 +358,35 @@ export const PlantProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   const testCloudIngestion = async (token?: string): Promise<{ success: boolean; message?: string }> => {
     addLog('sys', 'Sending test telemetry packet to /api/telemetry...');
-    const testSample: SensorReading = {
-      moisture: 38.5,
-      temperature: 25.0,
-      humidity: 52.0,
-      light: 2850,
-      condition: 'Suitable',
-      suitabilityClass: 'suitable',
-      mlClassCode: 2,
-      timestamp: Date.now(),
-      confidence: 0.98,
-      isSynthetic: false,
-      isTempAssumed: true,
-    };
-    const res = await cloudTelemetry.sendTestPacket(testSample, token);
-    if (res.success) {
-      addLog('sys', 'Test packet successfully accepted by Cloud Bridge!');
-      setStatusMessage('Test packet accepted by Cloud Bridge');
-      await connectCloud();
-      return { success: true, message: res.message };
-    } else {
-      addLog('sys', `Test packet rejected: ${res.error}`);
-      setStatusMessage(`Test packet rejected: ${res.error}`);
-      return { success: false, message: res.error };
+    const testLine =
+      'PLANT=ALOE_VERA,ML_CLASS=0,ML_STATUS=HIGH STRESS,TEMP_C_ASSUMED=25,SOIL_PCT=0,HUM_RH_EST=20,HUM_ADC=4041,SOIL_RAW=4095,LDR_ADC=1827,POT_ADC=1237,SW1=0,SW2=0';
+    
+    try {
+      const headers: Record<string, string> = {
+        'Content-Type': 'text/plain',
+      };
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+
+      const res = await fetch('/api/telemetry', {
+        method: 'POST',
+        headers,
+        body: testLine,
+      });
+
+      const json = await res.json();
+      if (res.ok && json.success) {
+        addLog('sys', 'Test packet successfully accepted by Cloud Bridge!');
+        setStatusMessage('Test packet accepted by Cloud Bridge');
+        await connectCloud();
+        return { success: true, message: json.message };
+      } else {
+        addLog('sys', `Test packet rejected: ${json.error}`);
+        setStatusMessage(`Test packet rejected: ${json.error}`);
+        return { success: false, message: json.error };
+      }
+    } catch (err: any) {
+      addLog('sys', `Test packet failed: ${err.message}`);
+      return { success: false, message: err.message };
     }
   };
 
@@ -435,7 +419,9 @@ export const PlantProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           setStatusMessage('Streaming live telemetry from STM32');
         } else {
           setConnectionState('disconnected');
-          setStatusMessage('Cloud Bridge: Telemetry is stale (Android bridge offline)');
+          setConnectedDeviceName('STM32 Cloud Bridge (Offline)');
+          setStatusMessage('Cloud Bridge: Telemetry is stale (STM32 offline)');
+          setCurrentReading(EMPTY_READING);
         }
       }
     };
@@ -461,16 +447,13 @@ export const PlantProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     else if (connectionProtocol === 'serial') webSerial.disconnect();
     setConnectionState('disconnected');
     setConnectedDeviceName(null);
-    setConnectionProtocol('demo');
-    setStatusMessage('Simulation Mode active.');
-    setIsDemoModeState(true);
-    StorageService.saveDemoMode(true);
+    setCurrentReading(EMPTY_READING);
+    setStatusMessage('STM32 Disconnected. Telemetry offline.');
+    addLog('sys', 'STM32 disconnected');
   };
 
   const injectManualPacket = (rawText: string): boolean => {
     addLog('in', `[Manual Ingest] ${rawText}`);
-    setIsDemoModeState(false);
-    StorageService.saveDemoMode(false);
     
     // Parse using universal parser (supports key-value & JSON)
     const parsedOk = webSerial.parseAndDispatch(rawText, activeProfile.plantCode);
@@ -493,14 +476,6 @@ export const PlantProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const selectProfile = (id: string) => {
     setActiveProfileId(id);
     StorageService.saveActiveProfileId(id);
-    const profile = profiles.find((p) => p.id === id) || profiles[0];
-    if (profile) {
-      const reading = demoDataService.getNextDatasetRow(profile.plantCode, profile.thresholds);
-      handleIncomingReading(reading);
-      const newHistory = demoDataService.generateHistory(profile.thresholds, profile.plantCode, 60);
-      setHistory(newHistory);
-      StorageService.saveTelemetryHistory(newHistory);
-    }
   };
 
   const updateActiveProfile = (updated: Partial<PlantProfile>) => {
@@ -556,11 +531,13 @@ export const PlantProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   const unreadAlertCount = alerts.filter((a) => !a.read).length;
 
-  const lastUpdatedStr = new Date(currentReading.timestamp).toLocaleTimeString([], {
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit',
-  });
+  const lastUpdatedStr = hasRealReading
+    ? new Date(currentReading.timestamp).toLocaleTimeString([], {
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+      })
+    : 'Waiting for device';
 
   return (
     <PlantContext.Provider
@@ -572,6 +549,7 @@ export const PlantProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         selectProfile,
         updateActiveProfile,
         currentReading,
+        hasRealReading,
         history,
         refreshReadings,
         checkPlantHealth,

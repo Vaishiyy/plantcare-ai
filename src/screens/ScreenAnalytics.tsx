@@ -15,7 +15,7 @@ import {
 import { PlantCondition, SensorReading } from '../types';
 
 export const ScreenAnalytics: React.FC = () => {
-  const { history, activeProfile, isDemoMode, exportCsv, tempUnit } = usePlant();
+  const { history, activeProfile, exportCsv, tempUnit } = usePlant();
   const [timeRange, setTimeRange] = useState<'24h' | '7d' | '30d'>('7d');
   const [downloadSuccess, setDownloadSuccess] = useState(false);
 
@@ -27,13 +27,7 @@ export const ScreenAnalytics: React.FC = () => {
     if (timeRange === '30d') durationMs = 30 * 24 * 3600 * 1000;
 
     const cutoff = now - durationMs;
-    const subset = history.filter((h) => h.timestamp >= cutoff);
-    if (subset.length < 5) {
-      if (timeRange === '24h') return history.slice(-15);
-      if (timeRange === '7d') return history.slice(-35);
-      return history;
-    }
-    return subset;
+    return history.filter((h) => h.timestamp >= cutoff);
   }, [history, timeRange]);
 
   const stats = useMemo(() => {
