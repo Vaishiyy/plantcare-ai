@@ -212,121 +212,153 @@ export const ScreenSettings: React.FC = () => {
           </div>
         ) : (
           <div className="space-y-3">
-            {/* 1. PRIMARY: ESP8266 WiFi WebSocket */}
-            <div className="p-4 bg-blue-50/80 border-2 border-blue-300 rounded-3xl space-y-3 shadow-soft">
+            {/* 1. BLUETOOTH: HC-05 (Classic COM Port) & BLE */}
+            <div className="p-4 bg-blue-50/90 border-2 border-blue-300 rounded-3xl space-y-3 shadow-soft">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2.5">
+                  <div className="p-2.5 rounded-2xl bg-blue-600 text-white shadow-soft">
+                    <Bluetooth className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <h3 className="text-sm font-bold text-blue-950 font-display">Bluetooth Link (HC-05 / BLE)</h3>
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-200/80 text-blue-900 border border-blue-300">
+                        Hardware Wireless
+                      </span>
+                    </div>
+                    <span className="text-[11px] text-blue-800 block">
+                      STM32 → HC-05 (UART) → Windows Bluetooth Virtual COM Port
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <p className="text-xs text-stone-600 leading-snug">
+                Connect directly to your paired <strong>HC-05</strong> Bluetooth module. Make sure it is paired in Windows Bluetooth settings first, then click below to choose the COM port.
+              </p>
+
+              {/* Baud Rate Picker */}
+              <div className="flex items-center justify-between text-xs text-stone-700 bg-white/80 p-2 rounded-xl border border-blue-200">
+                <span className="font-semibold text-stone-800">HC-05 Baud Rate:</span>
+                <div className="flex gap-1.5 font-mono">
+                  {[9600, 38400, 115200].map((baud) => (
+                    <button
+                      key={baud}
+                      onClick={() => setBaudRate(baud)}
+                      className={`px-2.5 py-1 rounded-lg text-xs font-bold font-mono transition-all ${
+                        baudRate === baud
+                          ? 'bg-blue-600 text-white shadow-soft'
+                          : 'bg-blue-100 text-blue-900 hover:bg-blue-200'
+                      }`}
+                    >
+                      {baud}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  onClick={handleSerialConnect}
+                  disabled={isConnecting}
+                  className="py-2.5 px-3 rounded-2xl bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-soft transition-all active:scale-[0.98]"
+                >
+                  <Bluetooth className="w-3.5 h-3.5" />
+                  <span>Connect HC-05 COM</span>
+                </button>
+                <button
+                  onClick={handleBleConnect}
+                  disabled={isConnecting}
+                  className="py-2.5 px-3 rounded-2xl bg-white hover:bg-stone-50 border border-blue-300 text-blue-950 font-bold text-xs flex items-center justify-center gap-1.5 shadow-soft transition-all active:scale-[0.98]"
+                >
+                  <Radio className="w-3.5 h-3.5 text-blue-600" />
+                  <span>Connect BLE (HM-10)</span>
+                </button>
+              </div>
+            </div>
+
+            {/* 2. ESP8266 WiFi WebSocket */}
+            <div className="p-4 bg-indigo-50/80 border-2 border-indigo-200 rounded-3xl space-y-3 shadow-soft">
               <div className="flex items-center gap-2.5">
-                <div className="p-2.5 rounded-2xl bg-blue-600 text-white shadow-soft">
+                <div className="p-2.5 rounded-2xl bg-indigo-600 text-white shadow-soft">
                   <Wifi className="w-5 h-5" />
                 </div>
                 <div>
                   <div className="flex items-center gap-2">
-                    <h3 className="text-sm font-bold text-blue-950 font-display">ESP8266 WiFi Direct Stream</h3>
-                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-200/80 text-blue-900 border border-blue-300">
-                      Primary / WebSocket
+                    <h3 className="text-sm font-bold text-indigo-950 font-display">ESP8266 WiFi Direct Stream</h3>
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-indigo-200/80 text-indigo-900 border border-indigo-300">
+                      WiFi / WebSocket
                     </span>
                   </div>
-                  <span className="text-[11px] text-blue-800 block">
+                  <span className="text-[11px] text-indigo-800 block">
                     STM32 → ESP8266 (UART) → WiFi → Browser (WebSocket ws://IP:81)
                   </span>
                 </div>
               </div>
 
-              <p className="text-xs text-stone-600 leading-snug">
-                ESP8266 forwards live STM32 UART sensor readings over WebSocket on your local network.
-                Enter your ESP8266's IP address (found on Serial Monitor after it connects to WiFi).
-              </p>
-
               {/* IP + Port inputs */}
               <div className="space-y-2">
                 <div className="flex gap-2">
                   <div className="flex-1">
-                    <label className="text-[10px] font-semibold text-stone-600 uppercase tracking-wide block mb-1">
-                      ESP8266 IP Address
-                    </label>
                     <input
                       type="text"
                       value={espIpInput}
                       onChange={(e) => setEspIpInput(e.target.value)}
                       placeholder="192.168.1.100"
-                      className="w-full px-3 py-2 rounded-xl border border-blue-200 bg-white text-xs font-mono text-stone-800 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-200"
+                      className="w-full px-3 py-2 rounded-xl border border-indigo-200 bg-white text-xs font-mono text-stone-800 focus:outline-none focus:border-indigo-500"
                       onKeyDown={(e) => e.key === 'Enter' && handleWifiConnect()}
                     />
                   </div>
                   <div className="w-20">
-                    <label className="text-[10px] font-semibold text-stone-600 uppercase tracking-wide block mb-1">
-                      WS Port
-                    </label>
                     <input
                       type="number"
                       value={espPort}
                       onChange={(e) => setEspPort(parseInt(e.target.value) || 81)}
-                      className="w-full px-3 py-2 rounded-xl border border-blue-200 bg-white text-xs font-mono text-stone-800 focus:outline-none focus:border-blue-500"
+                      className="w-full px-3 py-2 rounded-xl border border-indigo-200 bg-white text-xs font-mono text-stone-800 focus:outline-none focus:border-indigo-500"
                     />
                   </div>
                 </div>
 
-                <button
-                  onClick={handleWifiConnect}
-                  disabled={isConnecting || !espIpInput.trim()}
-                  className="w-full py-2.5 px-3 rounded-2xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-soft transition-all active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  <Wifi className="w-4 h-4" />
-                  <span>Connect to ESP8266 WiFi</span>
-                </button>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    onClick={handleWifiConnect}
+                    disabled={isConnecting || !espIpInput.trim()}
+                    className="py-2.5 px-3 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-soft transition-all active:scale-[0.98]"
+                  >
+                    <Wifi className="w-3.5 h-3.5" />
+                    <span>Connect WiFi</span>
+                  </button>
+                  <button
+                    onClick={() => setIsTerminalOpen(true)}
+                    className="py-2.5 px-3 rounded-2xl bg-white hover:bg-stone-50 border border-indigo-300 text-indigo-950 font-bold text-xs flex items-center justify-center gap-1.5 shadow-soft transition-all active:scale-[0.98]"
+                  >
+                    <Terminal className="w-3.5 h-3.5 text-indigo-600" />
+                    <span>Open Terminal</span>
+                  </button>
+                </div>
               </div>
             </div>
 
-            {/* 2. USB Serial (STM32 directly via USB cable) */}
+            {/* 3. Direct USB Cable (STM32 USB / CH340) */}
             <details className="group p-3 bg-emerald-50/80 border border-emerald-200 rounded-2xl">
               <summary className="cursor-pointer text-xs font-bold text-stone-800 flex items-center justify-between select-none">
                 <div className="flex items-center gap-2">
                   <Cpu className="w-4 h-4 text-emerald-700" />
-                  <span>USB Direct Serial (STM32 USB Cable)</span>
+                  <span>Direct USB Cable (CH340 / STM32 USB)</span>
                 </div>
                 <span className="text-[10px] font-normal text-stone-500 group-open:hidden">Expand</span>
               </summary>
               <div className="pt-3 space-y-2">
                 <p className="text-[11px] text-stone-600 leading-snug">
-                  Connect STM32 directly to this PC via USB. Uses Web Serial API (Chrome/Edge only).
-                  Select your COM port from the browser dialog.
+                  Direct wired USB connection using a CH340 / CP2102 adapter or STM32 Virtual COM port.
                 </p>
-                <div className="flex items-center justify-between text-xs text-stone-700 bg-white/70 p-2 rounded-xl border border-emerald-200">
-                  <span className="font-semibold text-stone-800">Baud Rate:</span>
-                  <div className="flex gap-1.5 font-mono">
-                    {[9600, 115200].map((baud) => (
-                      <button key={baud} onClick={() => setBaudRate(baud)}
-                        className={`px-3 py-1 rounded-lg text-xs font-bold transition-all ${baudRate === baud ? 'bg-emerald-600 text-white' : 'bg-emerald-100 text-emerald-900 hover:bg-emerald-200'}`}>
-                        {baud}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-                <div className="grid grid-cols-2 gap-2">
-                  <button onClick={handleSerialConnect} disabled={isConnecting}
-                    className="py-2 px-3 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center justify-center gap-1.5 transition-all active:scale-[0.98]">
-                    <Cpu className="w-3.5 h-3.5" /><span>Connect USB Serial</span>
-                  </button>
-                  <button onClick={() => setIsTerminalOpen(true)}
-                    className="py-2 px-3 rounded-2xl bg-white border border-emerald-300 text-emerald-900 font-bold text-xs flex items-center justify-center gap-1.5 transition-all active:scale-[0.98]">
-                    <Terminal className="w-3.5 h-3.5" /><span>UART Monitor</span>
-                  </button>
-                </div>
-              </div>
-            </details>
-
-            {/* 3. BLE (optional) */}
-            <details className="group p-3 bg-cream-50/90 border border-cream-200 rounded-2xl">
-              <summary className="cursor-pointer text-xs font-bold text-stone-800 flex items-center justify-between select-none">
-                <div className="flex items-center gap-2">
-                  <Bluetooth className="w-4 h-4 text-stone-500" />
-                  <span>Direct Web Bluetooth BLE (HM-10)</span>
-                </div>
-                <span className="text-[10px] font-normal text-stone-500 group-open:hidden">Expand</span>
-              </summary>
-              <div className="pt-3">
-                <button onClick={handleBleConnect} disabled={isConnecting}
-                  className="w-full py-2 px-3 rounded-xl bg-forest-600 hover:bg-forest-700 text-white font-semibold text-xs transition-all active:scale-[0.98]">
-                  Connect BLE
+                <button
+                  onClick={handleSerialConnect}
+                  disabled={isConnecting}
+                  className="w-full py-2 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center justify-center gap-1.5 transition-all active:scale-[0.98]"
+                >
+                  <Cpu className="w-3.5 h-3.5" />
+                  <span>Select USB COM Port</span>
                 </button>
               </div>
             </details>

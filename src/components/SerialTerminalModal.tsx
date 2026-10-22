@@ -1,6 +1,19 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { usePlant } from '../context/PlantContext';
-import { X, Terminal, Send, CheckCircle2, Cpu, Zap, AlertCircle, ChevronDown, Wifi, Radio, RefreshCw } from 'lucide-react';
+import {
+  X,
+  Terminal,
+  Send,
+  CheckCircle2,
+  Cpu,
+  Zap,
+  AlertCircle,
+  ChevronDown,
+  Wifi,
+  Radio,
+  Bluetooth,
+  HelpCircle,
+} from 'lucide-react';
 import { webSerial } from '../services/bluetooth/WebSerialService';
 
 interface SerialTerminalModalProps {
@@ -17,6 +30,7 @@ export const SerialTerminalModal: React.FC<SerialTerminalModalProps> = ({ isOpen
     connectedDeviceName,
     activeProfile,
     connectSerial,
+    connectBle,
     connectWifi,
     espIp,
     setEspIp,
@@ -28,7 +42,7 @@ export const SerialTerminalModal: React.FC<SerialTerminalModalProps> = ({ isOpen
     hasRealReading,
   } = usePlant();
 
-  const [activeTab, setActiveTab] = useState<'wifi' | 'serial'>('wifi');
+  const [activeTab, setActiveTab] = useState<'bluetooth' | 'wifi' | 'usb'>('bluetooth');
   const [wifiIpInput, setWifiIpInput] = useState<string>(espIp || '192.168.1.100');
   const [wifiPortInput, setWifiPortInput] = useState<number>(espPort || 81);
   const [baudRate, setBaudRate] = useState<number>(9600);
@@ -62,21 +76,31 @@ export const SerialTerminalModal: React.FC<SerialTerminalModalProps> = ({ isOpen
 
   if (!isOpen) return null;
 
+  const handleSerialConnect = async (customBaud?: number) => {
+    const rate = customBaud || baudRate;
+    setIsConnecting(true);
+    try {
+      await connectSerial(rate);
+    } finally {
+      setIsConnecting(false);
+    }
+  };
+
+  const handleBleConnect = async () => {
+    setIsConnecting(true);
+    try {
+      await connectBle();
+    } finally {
+      setIsConnecting(false);
+    }
+  };
+
   const handleWifiConnect = () => {
     const cleanIp = wifiIpInput.trim();
     if (!cleanIp) return;
     setEspIp(cleanIp);
     setEspPort(wifiPortInput);
     connectWifi(cleanIp, wifiPortInput);
-  };
-
-  const handleSerialConnect = async () => {
-    setIsConnecting(true);
-    try {
-      await connectSerial(baudRate);
-    } finally {
-      setIsConnecting(false);
-    }
   };
 
   const handleTransmit = async () => {
@@ -103,10 +127,10 @@ export const SerialTerminalModal: React.FC<SerialTerminalModalProps> = ({ isOpen
             <Terminal className="w-4 h-4 text-emerald-400" />
             <div>
               <span className="text-xs font-mono font-bold text-stone-200 block">
-                STM32 & ESP8266 Telemetry & Command Monitor
+                STM32 Live Telemetry & Hardware Terminal
               </span>
               <span className="text-[10px] text-stone-500 font-mono">
-                {activeProfile.name} • WiFi & Serial Bidirectional Link
+                {activeProfile.name} • Bluetooth (HC-05/BLE), WiFi & Serial Link
               </span>
             </div>
           </div>
@@ -114,14 +138,28 @@ export const SerialTerminalModal: React.FC<SerialTerminalModalProps> = ({ isOpen
             <span
               className={`text-[10px] font-mono px-2.5 py-0.5 rounded-full border flex items-center gap-1.5 ${
                 isConnected
-                  ? 'bg-emerald-950 text-emerald-300 border-emerald-700'
+                  ? hasRealReading
+                    ? 'bg-emerald-950 text-emerald-300 border-emerald-700'
+                    : 'bg-amber-950 text-amber-300 border-amber-700 animate-pulse'
                   : connectionState === 'connecting'
                   ? 'bg-blue-950 text-blue-300 border-blue-700 animate-pulse'
                   : 'bg-stone-800 text-stone-400 border-stone-700'
               }`}
             >
-              <span className={`w-1.5 h-1.5 rounded-full ${isConnected ? 'bg-emerald-400 animate-ping' : 'bg-stone-500'}`} />
-              {isConnected ? `${connectionProtocol.toUpperCase()}: LIVE` : connectionState.toUpperCase()}
+              <span
+                className={`w-1.5 h-1.5 rounded-full ${
+                  isConnected
+                    ? hasRealReading
+                      ? 'bg-emerald-400 animate-ping'
+                      : 'bg-amber-400'
+                    : 'bg-stone-500'
+                }`}
+              />
+              {isConnected
+                ? hasRealReading
+                  ? `${connectionProtocol.toUpperCase()}: LIVE`
+                  : `${connectionProtocol.toUpperCase()}: WAITING FOR DATA`
+                : connectionState.toUpperCase()}
             </span>
             <button
               onClick={onClose}
@@ -137,32 +175,110 @@ export const SerialTerminalModal: React.FC<SerialTerminalModalProps> = ({ isOpen
           {!isConnected ? (
             <div className="space-y-3">
               {/* Protocol Selector Tabs */}
-              <div className="flex items-center gap-2 p-1 bg-stone-900 rounded-xl border border-stone-800">
+              <div className="flex items-center gap-1.5 p-1 bg-stone-900 rounded-xl border border-stone-800">
                 <button
-                  onClick={() => setActiveTab('wifi')}
-                  className={`flex-1 py-1.5 px-3 rounded-lg text-xs font-bold font-mono flex items-center justify-center gap-2 transition-all ${
-                    activeTab === 'wifi'
+                  onClick={() => setActiveTab('bluetooth')}
+                  className={`flex-1 py-1.5 px-2 rounded-lg text-xs font-bold font-mono flex items-center justify-center gap-1.5 transition-all ${
+                    activeTab === 'bluetooth'
                       ? 'bg-blue-600 text-white shadow-soft'
                       : 'text-stone-400 hover:text-stone-200 hover:bg-stone-800/60'
                   }`}
                 >
-                  <Wifi className="w-3.5 h-3.5" />
-                  <span>ESP8266 WiFi (Primary)</span>
+                  <Bluetooth className="w-3.5 h-3.5" />
+                  <span>Bluetooth (HC-05 / BLE)</span>
                 </button>
                 <button
-                  onClick={() => setActiveTab('serial')}
-                  className={`flex-1 py-1.5 px-3 rounded-lg text-xs font-bold font-mono flex items-center justify-center gap-2 transition-all ${
-                    activeTab === 'serial'
+                  onClick={() => setActiveTab('wifi')}
+                  className={`flex-1 py-1.5 px-2 rounded-lg text-xs font-bold font-mono flex items-center justify-center gap-1.5 transition-all ${
+                    activeTab === 'wifi'
+                      ? 'bg-indigo-600 text-white shadow-soft'
+                      : 'text-stone-400 hover:text-stone-200 hover:bg-stone-800/60'
+                  }`}
+                >
+                  <Wifi className="w-3.5 h-3.5" />
+                  <span>ESP8266 WiFi</span>
+                </button>
+                <button
+                  onClick={() => setActiveTab('usb')}
+                  className={`flex-1 py-1.5 px-2 rounded-lg text-xs font-bold font-mono flex items-center justify-center gap-1.5 transition-all ${
+                    activeTab === 'usb'
                       ? 'bg-emerald-600 text-white shadow-soft'
                       : 'text-stone-400 hover:text-stone-200 hover:bg-stone-800/60'
                   }`}
                 >
                   <Cpu className="w-3.5 h-3.5" />
-                  <span>USB Serial Direct</span>
+                  <span>USB Serial (CH340)</span>
                 </button>
               </div>
 
-              {/* Tab 1: ESP8266 WiFi Controls */}
+              {/* Tab 1: Bluetooth (HC-05 & BLE) Controls */}
+              {activeTab === 'bluetooth' && (
+                <div className="space-y-2.5">
+                  <div className="p-3 bg-stone-900/90 border border-stone-800 rounded-2xl space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold text-blue-300 font-mono flex items-center gap-1.5">
+                        <Bluetooth className="w-3.5 h-3.5 text-blue-400" />
+                        <span>Option A: HC-05 Bluetooth Classic (COM Port)</span>
+                      </span>
+                      {/* Baud Rate picker */}
+                      <div className="flex items-center gap-1 bg-stone-950 border border-stone-800 rounded-lg p-0.5">
+                        <span className="text-stone-500 px-1 text-[9px] font-mono">Baud:</span>
+                        {[9600, 38400, 115200].map((rate) => (
+                          <button
+                            key={rate}
+                            onClick={() => setBaudRate(rate)}
+                            className={`px-1.5 py-0.5 rounded text-[9px] font-bold font-mono transition-all ${
+                              baudRate === rate
+                                ? 'bg-blue-600 text-white'
+                                : 'text-stone-400 hover:text-stone-200'
+                            }`}
+                          >
+                            {rate}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    <p className="text-[11px] text-stone-400 leading-snug">
+                      HC-05 connects via your Windows paired virtual COM port. Click below and pick your{' '}
+                      <strong className="text-stone-200">Standard Serial over Bluetooth link (COMx)</strong>.
+                    </p>
+
+                    <button
+                      onClick={() => handleSerialConnect(baudRate)}
+                      disabled={isConnecting || !isSerialSupported}
+                      className="w-full py-2.5 px-3 rounded-xl font-bold text-xs font-mono flex items-center justify-center gap-2 bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-500 hover:to-cyan-500 text-white shadow-lg transition-all active:scale-[0.98]"
+                    >
+                      <Bluetooth className="w-4 h-4" />
+                      <span>
+                        {isConnecting
+                          ? 'Opening Port Selector...'
+                          : `⚡ Connect Bluetooth HC-05 COM Port (${baudRate} Baud)`}
+                      </span>
+                    </button>
+                  </div>
+
+                  <div className="p-3 bg-stone-900/50 border border-stone-800/80 rounded-2xl flex items-center justify-between">
+                    <div>
+                      <span className="text-xs font-bold text-stone-300 font-mono block">
+                        Option B: Bluetooth Low Energy (HM-10 / BLE)
+                      </span>
+                      <span className="text-[10px] text-stone-500">
+                        Direct browser BLE GATT scan (no COM port required)
+                      </span>
+                    </div>
+                    <button
+                      onClick={handleBleConnect}
+                      disabled={isConnecting}
+                      className="py-1.5 px-3 rounded-xl font-bold text-xs font-mono bg-stone-800 hover:bg-stone-700 border border-stone-700 text-stone-200 hover:text-white transition-all shrink-0"
+                    >
+                      Scan BLE
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Tab 2: ESP8266 WiFi Controls */}
               {activeTab === 'wifi' && (
                 <div className="space-y-2">
                   <div className="flex items-center gap-2">
@@ -192,22 +308,19 @@ export const SerialTerminalModal: React.FC<SerialTerminalModalProps> = ({ isOpen
 
                   <button
                     onClick={handleWifiConnect}
-                    className="w-full py-2 px-4 rounded-xl font-bold text-xs font-mono flex items-center justify-center gap-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white shadow-lg transition-all active:scale-[0.98]"
+                    className="w-full py-2 px-4 rounded-xl font-bold text-xs font-mono flex items-center justify-center gap-2 bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-500 hover:to-blue-500 text-white shadow-lg transition-all active:scale-[0.98]"
                   >
                     <Wifi className="w-3.5 h-3.5" />
                     <span>⚡ Connect ESP8266 WiFi (ws://{wifiIpInput}:{wifiPortInput})</span>
                   </button>
-                  <p className="text-[10px] text-stone-500 leading-tight">
-                    ESP8266 reads STM32 UART at 9600 baud and streams to this browser over local WiFi WebSocket.
-                  </p>
                 </div>
               )}
 
-              {/* Tab 2: USB Serial Controls */}
-              {activeTab === 'serial' && (
+              {/* Tab 3: USB Serial Direct Controls */}
+              {activeTab === 'usb' && (
                 <div className="space-y-2">
                   <div className="flex items-center justify-between text-[11px] text-stone-400">
-                    <span>Direct STM32 USB-UART Connection</span>
+                    <span>Direct USB Cable (CH340 / STM32 VCP)</span>
                     <div className="flex items-center gap-1 bg-stone-900 border border-stone-700 rounded-xl p-1">
                       <span className="text-stone-500 px-1 text-[10px] font-mono">Baud:</span>
                       {[9600, 115200].map((rate) => (
@@ -215,7 +328,9 @@ export const SerialTerminalModal: React.FC<SerialTerminalModalProps> = ({ isOpen
                           key={rate}
                           onClick={() => setBaudRate(rate)}
                           className={`px-2 py-0.5 rounded-lg text-[10px] font-bold font-mono transition-all ${
-                            baudRate === rate ? 'bg-emerald-600 text-white' : 'text-stone-400 hover:text-stone-200'
+                            baudRate === rate
+                              ? 'bg-emerald-600 text-white'
+                              : 'text-stone-400 hover:text-stone-200'
                           }`}
                         >
                           {rate}
@@ -225,24 +340,13 @@ export const SerialTerminalModal: React.FC<SerialTerminalModalProps> = ({ isOpen
                   </div>
 
                   <button
-                    onClick={handleSerialConnect}
+                    onClick={() => handleSerialConnect(baudRate)}
                     disabled={isConnecting || !isSerialSupported}
-                    className={`w-full py-2 px-4 rounded-xl font-bold text-xs font-mono flex items-center justify-center gap-2 transition-all active:scale-[0.98] ${
-                      isSerialSupported
-                        ? 'bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white shadow-lg'
-                        : 'bg-stone-800 text-stone-500 cursor-not-allowed border border-stone-700'
-                    }`}
+                    className="w-full py-2.5 px-4 rounded-xl font-bold text-xs font-mono flex items-center justify-center gap-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white shadow-lg transition-all active:scale-[0.98]"
                   >
                     <Cpu className="w-4 h-4" />
-                    <span>{isConnecting ? 'Opening port selector...' : '⚡ Select STM32 USB Port'}</span>
+                    <span>{isConnecting ? 'Opening Port Selector...' : '⚡ Select USB Serial Port'}</span>
                   </button>
-
-                  {!isSerialSupported && (
-                    <div className="p-2 bg-amber-950/40 border border-amber-800/60 rounded-xl flex items-center gap-2 text-[10px] text-amber-300">
-                      <AlertCircle className="w-3.5 h-3.5 shrink-0" />
-                      <span>Web Serial requires Chrome or Edge on Windows desktop.</span>
-                    </div>
-                  )}
                 </div>
               )}
             </div>
@@ -251,13 +355,17 @@ export const SerialTerminalModal: React.FC<SerialTerminalModalProps> = ({ isOpen
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse" />
+                  <span
+                    className={`w-2.5 h-2.5 rounded-full ${
+                      hasRealReading ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400 animate-ping'
+                    }`}
+                  />
                   <div>
                     <span className="text-xs font-bold text-emerald-300 font-mono block">
-                      Live Stream Active ({connectionProtocol.toUpperCase()})
+                      {hasRealReading ? 'Live Stream Active' : 'Connected (Waiting for Telemetry...)'}
                     </span>
                     <span className="text-[10px] text-stone-400 font-mono">
-                      {connectedDeviceName || 'STM32 Hardware'} • Bidirectional Link Ready
+                      {connectedDeviceName || 'STM32 Hardware'} • {connectionProtocol.toUpperCase()}
                     </span>
                   </div>
                 </div>
@@ -269,13 +377,42 @@ export const SerialTerminalModal: React.FC<SerialTerminalModalProps> = ({ isOpen
                 </button>
               </div>
 
+              {/* Waiting notice if connected but no data yet */}
+              {!hasRealReading && (
+                <div className="p-2 bg-amber-950/40 border border-amber-800/60 rounded-xl text-[11px] text-amber-300 flex items-start gap-2">
+                  <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+                  <div className="leading-snug">
+                    <span>Connected to port! Waiting for STM32 to transmit sensor packets.</span>
+                    <span className="block text-stone-400 text-[10px] mt-0.5">
+                      Ensure STM32 USART2 TX (PA2) is connected to Bluetooth RX, and baud rate matches.
+                    </span>
+                  </div>
+                </div>
+              )}
+
               {/* Live mini telemetry strip */}
               <div className="grid grid-cols-4 gap-1.5 font-mono text-[10px]">
                 {[
-                  { label: 'SOIL', value: hasRealReading ? `${currentReading.moisture}%` : '--', color: 'text-emerald-400' },
-                  { label: 'TEMP', value: hasRealReading ? `${currentReading.temperature}°C` : '--', color: 'text-amber-400' },
-                  { label: 'LIGHT', value: hasRealReading ? `${currentReading.light}` : '--', color: 'text-yellow-400' },
-                  { label: 'ML', value: hasRealReading ? currentReading.condition : 'WAIT', color: 'text-blue-400' },
+                  {
+                    label: 'SOIL',
+                    value: hasRealReading ? `${currentReading.moisture}%` : '--',
+                    color: 'text-emerald-400',
+                  },
+                  {
+                    label: 'TEMP',
+                    value: hasRealReading ? `${currentReading.temperature}°C` : '--',
+                    color: 'text-amber-400',
+                  },
+                  {
+                    label: 'LIGHT',
+                    value: hasRealReading ? `${currentReading.light}` : '--',
+                    color: 'text-yellow-400',
+                  },
+                  {
+                    label: 'ML',
+                    value: hasRealReading ? currentReading.condition : 'WAIT',
+                    color: 'text-blue-400',
+                  },
                 ].map(({ label, value, color }) => (
                   <div key={label} className="p-1.5 bg-stone-900 border border-stone-800 rounded-lg text-center">
                     <span className="text-stone-500 block text-[9px]">{label}</span>
@@ -296,8 +433,8 @@ export const SerialTerminalModal: React.FC<SerialTerminalModalProps> = ({ isOpen
             <div className="text-stone-600 italic py-12 text-center space-y-1">
               <p>
                 {isConnected
-                  ? 'Waiting for first UART telemetry packet from ESP8266 / STM32...'
-                  : 'Connect to ESP8266 WiFi or USB Serial above to begin live streaming.'}
+                  ? 'Connected to hardware! Waiting for incoming UART telemetry from STM32...'
+                  : 'Select Bluetooth HC-05 COM port, BLE, or WiFi above to begin streaming.'}
               </p>
             </div>
           ) : (
@@ -325,7 +462,7 @@ export const SerialTerminalModal: React.FC<SerialTerminalModalProps> = ({ isOpen
                   </span>
                   <span
                     className={`break-all ${
-                      isRx ? 'text-stone-300' : isSys ? 'text-amber-300' : 'text-blue-300 font-semibold'
+                      isRx ? 'text-stone-200' : isSys ? 'text-amber-300' : 'text-blue-300 font-semibold'
                     }`}
                   >
                     {log.text}
@@ -336,12 +473,12 @@ export const SerialTerminalModal: React.FC<SerialTerminalModalProps> = ({ isOpen
           )}
         </div>
 
-        {/* Transmit Command Console (Bidirectional Control) */}
+        {/* Transmit Command Console */}
         <div className="p-3 bg-stone-900 border-t border-stone-800 space-y-2">
           <div className="flex items-center justify-between">
             <span className="text-[10px] font-mono text-stone-400 uppercase tracking-wider flex items-center gap-1.5">
               <Radio className="w-3 h-3 text-blue-400" />
-              <span>Transmit to Hardware (ESP8266 → STM32 UART)</span>
+              <span>Transmit Command to STM32</span>
             </span>
             {actionFeedback && (
               <span className="text-[10px] font-mono text-emerald-400 flex items-center gap-1">
@@ -355,7 +492,7 @@ export const SerialTerminalModal: React.FC<SerialTerminalModalProps> = ({ isOpen
             {[
               { label: 'CMD:READ', desc: 'Trigger Sensor Read' },
               { label: 'CMD:WATER', desc: 'Test Water Relay' },
-              { label: 'CMD:PING', desc: 'Ping ESP8266' },
+              { label: 'CMD:PING', desc: 'Ping Link' },
               { label: 'CMD:RESET', desc: 'Reset State' },
             ].map(({ label, desc }) => (
               <button

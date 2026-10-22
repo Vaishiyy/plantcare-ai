@@ -119,31 +119,31 @@ export const ScreenLiveMonitoring: React.FC = () => {
         {connectionState !== 'connected' && (
           <div className="p-3.5 bg-blue-50/90 border border-blue-200 rounded-2xl flex flex-col gap-2.5 text-stone-700">
             <div className="flex items-start gap-2.5">
-              <Wifi className="w-4 h-4 text-blue-600 shrink-0 mt-0.5" />
+              <Bluetooth className="w-4 h-4 text-blue-600 shrink-0 mt-0.5" />
               <div className="text-xs flex-1">
                 <span className="font-bold text-blue-950 block">
-                  STM32 Disconnected (Hardware Telemetry Offline)
+                  STM32 Hardware Offline
                 </span>
                 <p className="text-stone-600 leading-snug">
-                  Read live sensor readings directly from your STM32 Black Pill via ESP8266 WiFi (or USB Serial) without external apps or manual typing.
+                  Read live sensor readings directly from your STM32 Black Pill via Bluetooth (HC-05 COM port / BLE), ESP8266 WiFi, or USB cable.
                 </p>
               </div>
             </div>
 
             <div className="flex items-center gap-2 pt-1 border-t border-blue-200/80">
               <button
-                onClick={() => connectWifi(espIp, espPort)}
+                onClick={() => connectSerial(9600)}
                 className="flex-1 py-2 px-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-soft transition-all active:scale-[0.98]"
               >
-                <Wifi className="w-3.5 h-3.5" />
-                <span>⚡ Connect ESP8266 WiFi ({espIp})</span>
+                <Bluetooth className="w-3.5 h-3.5" />
+                <span>⚡ Connect Bluetooth HC-05</span>
               </button>
               <button
                 onClick={() => setIsTerminalOpen(true)}
                 className="py-2 px-3 rounded-xl bg-white hover:bg-stone-50 border border-blue-300 text-blue-950 font-bold text-xs flex items-center justify-center gap-1 shadow-soft transition-all active:scale-[0.98]"
               >
                 <Terminal className="w-3.5 h-3.5 text-blue-600" />
-                <span>Open Stream Monitor</span>
+                <span>Hardware Terminal</span>
               </button>
             </div>
           </div>

@@ -16,6 +16,7 @@ import { webSerial } from '../services/bluetooth/WebSerialService';
 import { espWifi } from '../services/wifi/EspWifiService';
 import { evaluatePlantModel } from '../services/ml/mlInference';
 import { cloudTelemetry } from '../services/api/cloudTelemetryService';
+import { parseTelemetryPacket } from '../services/TelemetryParser';
 
 interface SerialLogEntry {
   id: string;
@@ -234,7 +235,7 @@ export const PlantProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   );
 
   const handleIncomingReading = useCallback(
-    (reading: SensorReading, rawText?: string) => {
+    (reading: SensorReading, _rawText?: string) => {
       setCurrentReading(reading);
       setHistory((prev) => {
         const next = [...prev, reading].slice(-300);
@@ -242,41 +243,38 @@ export const PlantProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         return next;
       });
 
-      if (rawText) {
-        addLog('in', rawText);
-      }
-
       evaluateAlerts(reading, activeProfile.thresholds);
     },
-    [activeProfile.thresholds, addLog, evaluateAlerts]
+    [activeProfile.thresholds, evaluateAlerts]
   );
 
   useEffect(() => {
     webBluetooth.registerCallbacks(
-      (reading, rawText) => handleIncomingReading(reading, rawText),
+      (reading) => handleIncomingReading(reading),
       (status, msg) => {
         setConnectionState(status);
         if (status === 'connected') {
-          setConnectedDeviceName(webBluetooth.getDeviceName() || 'STM32-Plant-BLE');
+          setConnectedDeviceName(webBluetooth.getDeviceName() || 'STM32 Bluetooth (BLE)');
           setConnectionProtocol('ble');
-          addLog('sys', `BLE connected: ${webBluetooth.getDeviceName() || 'STM32'}`);
+          addLog('sys', `Bluetooth BLE connected: ${webBluetooth.getDeviceName() || 'STM32'}`);
         } else if (status === 'disconnected') {
           setConnectedDeviceName(null);
           setCurrentReading(EMPTY_READING);
-          addLog('sys', 'BLE connection closed');
+          addLog('sys', 'Bluetooth BLE link closed');
         }
         if (msg) setStatusMessage(msg);
-      }
+      },
+      (dir, text) => addLog(dir, text)
     );
 
     webSerial.registerCallbacks(
-      (reading, rawText) => handleIncomingReading(reading, rawText),
+      (reading) => handleIncomingReading(reading),
       (status, msg) => {
         setConnectionState(status);
         if (status === 'connected') {
-          setConnectedDeviceName('STM32 Serial Link');
+          setConnectedDeviceName('STM32 Bluetooth (HC-05 COM) / Serial');
           setConnectionProtocol('serial');
-          addLog('sys', 'Serial port opened — streaming live readings');
+          addLog('sys', 'Serial port opened — listening for live STM32 telemetry');
         } else if (status === 'disconnected') {
           setConnectedDeviceName(null);
           setCurrentReading(EMPTY_READING);
@@ -285,18 +283,19 @@ export const PlantProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           addLog('sys', `Serial error: ${msg || 'Unknown'}`);
         }
         if (msg) setStatusMessage(msg);
-      }
+      },
+      (dir, text) => addLog(dir, text)
     );
 
     // Register ESP8266 WiFi WebSocket callbacks
     espWifi.registerCallbacks(
-      (reading, rawText) => handleIncomingReading(reading, rawText),
+      (reading) => handleIncomingReading(reading),
       (status, msg) => {
         setConnectionState(status);
         if (status === 'connected') {
           setConnectedDeviceName('STM32 via ESP8266 WiFi');
           setConnectionProtocol('wifi');
-          addLog('sys', 'ESP8266 WiFi WebSocket connected — live streaming');
+          addLog('sys', 'ESP8266 WiFi WebSocket connected — listening for live stream');
         } else if (status === 'disconnected') {
           setConnectedDeviceName(null);
           setCurrentReading(EMPTY_READING);
@@ -305,7 +304,8 @@ export const PlantProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           addLog('sys', `ESP8266 WiFi error: ${msg || 'Unknown'}`);
         }
         if (msg) setStatusMessage(msg);
-      }
+      },
+      (dir, text) => addLog(dir, text)
     );
 
     // On mount: attempt auto-connect to any previously permitted USB serial port (no dialog)
@@ -556,11 +556,11 @@ export const PlantProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   };
 
   const injectManualPacket = (rawText: string): boolean => {
-    addLog('in', `[Manual Ingest] ${rawText}`);
-    
-    // Parse using universal parser (supports key-value & JSON)
-    const parsedOk = webSerial.parseAndDispatch(rawText, activeProfile.plantCode);
-    if (parsedOk) {
+    addLog('in', rawText);
+
+    const reading = parseTelemetryPacket(rawText, activeProfile.plantCode);
+    if (reading) {
+      handleIncomingReading(reading, rawText);
       setConnectionState('connected');
       setConnectedDeviceName('STM32 Hardware Telemetry');
       setStatusMessage('Live reading ingested successfully');

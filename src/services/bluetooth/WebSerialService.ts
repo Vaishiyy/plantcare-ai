@@ -1,11 +1,12 @@
-import { PlantCondition, SensorReading } from '../../types';
-import { evaluatePlantModel } from '../ml/mlInference';
+import { SensorReading } from '../../types';
+import { parseTelemetryPacket } from '../TelemetryParser';
 
 export type SerialDataCallback = (reading: SensorReading, rawText: string) => void;
 export type SerialStatusCallback = (
   status: 'disconnected' | 'connecting' | 'connected' | 'error',
   message?: string
 ) => void;
+export type SerialRawCallback = (direction: 'in' | 'out' | 'sys', text: string) => void;
 
 export class WebSerialManager {
   private port: any = null;
@@ -14,15 +15,22 @@ export class WebSerialManager {
   private isReading: boolean = false;
   private onDataReceived: SerialDataCallback | null = null;
   private onStatusChanged: SerialStatusCallback | null = null;
+  private onRawData: SerialRawCallback | null = null;
   private currentBaudRate: number = 9600;
+  private flushTimer: ReturnType<typeof setTimeout> | null = null;
 
   public isSupported(): boolean {
     return typeof navigator !== 'undefined' && 'serial' in navigator;
   }
 
-  public registerCallbacks(onData: SerialDataCallback, onStatus: SerialStatusCallback): void {
+  public registerCallbacks(
+    onData: SerialDataCallback,
+    onStatus: SerialStatusCallback,
+    onRaw?: SerialRawCallback
+  ): void {
     this.onDataReceived = onData;
     this.onStatusChanged = onStatus;
+    this.onRawData = onRaw || null;
   }
 
   /** User-initiated connect: shows browser port-picker dialog */
@@ -30,26 +38,31 @@ export class WebSerialManager {
     if (!this.isSupported()) {
       this.onStatusChanged?.(
         'error',
-        'Web Serial API not supported. Use Chrome, Edge, or Opera on desktop.'
+        'Web Serial API not supported. Use Google Chrome or Microsoft Edge on Windows/Mac/Linux.'
       );
       return false;
     }
 
-    // If already connected, disconnect first cleanly
     if (this.port) {
       await this.disconnect();
     }
 
     try {
-      this.onStatusChanged?.('connecting', 'Opening port selector — choose your STM32 USB or Serial UART port...');
+      this.onStatusChanged?.(
+        'connecting',
+        'Select your Bluetooth HC-05 COM port or USB Serial port from the list...'
+      );
       this.port = await (navigator as any).serial.requestPort();
       return await this._openAndStream(baudRate);
     } catch (err: any) {
-      const cancelled = err.name === 'NotFoundError' || err.message?.includes('cancelled') || err.message?.includes('No port selected');
+      const cancelled =
+        err.name === 'NotFoundError' ||
+        err.message?.includes('cancelled') ||
+        err.message?.includes('No port selected');
       this.onStatusChanged?.(
         cancelled ? 'disconnected' : 'error',
         cancelled
-          ? 'No port selected. Click "⚡ Connect STM32 Directly" and choose your COM port from the browser list.'
+          ? 'Port selection cancelled. Please choose your Bluetooth COM or USB port.'
           : `Serial error: ${err.message || 'Unknown error'}`
       );
       this.port = null;
@@ -60,7 +73,7 @@ export class WebSerialManager {
   /** Auto-connect to a previously permitted port (no dialog needed) */
   public async autoConnect(baudRate: number = 9600): Promise<boolean> {
     if (!this.isSupported()) return false;
-    if (this.port) return true; // already connected
+    if (this.port) return true;
     try {
       const ports = await (navigator as any).serial.getPorts();
       if (ports && ports.length > 0) {
@@ -76,17 +89,21 @@ export class WebSerialManager {
   private async _openAndStream(baudRate: number): Promise<boolean> {
     this.currentBaudRate = baudRate;
     try {
-      // Only open if not already open
       if (!this.port.readable) {
         await this.port.open({ baudRate });
       }
-      this.onStatusChanged?.('connected', `STM32 serial port open — streaming live at ${baudRate} baud`);
+      this.onStatusChanged?.(
+        'connected',
+        `Serial port opened at ${baudRate} baud (Bluetooth HC-05 / USB link active)`
+      );
       this._startReading();
       return true;
     } catch (err: any) {
-      // Port might already be open — still treat as connected and start reading
       if (err.message?.includes('already open') || err.message?.includes('port is already')) {
-        this.onStatusChanged?.('connected', `STM32 serial port already open — streaming at ${baudRate} baud`);
+        this.onStatusChanged?.(
+          'connected',
+          `Serial port already open — streaming at ${baudRate} baud`
+        );
         this._startReading();
         return true;
       }
@@ -114,10 +131,15 @@ export class WebSerialManager {
     } catch (err: any) {
       if (this.isReading) {
         console.warn('[WebSerial] Read loop error:', err);
-        this.onStatusChanged?.('error', `Read error: ${err.message || 'Serial stream interrupted'}`);
+        this.onStatusChanged?.(
+          'error',
+          `Serial stream interrupted: ${err.message || 'Check connection'}`
+        );
       }
     } finally {
-      try { this.reader?.releaseLock(); } catch (_) {}
+      try {
+        this.reader?.releaseLock();
+      } catch (_) {}
       this.reader = null;
       this.isReading = false;
     }
@@ -125,140 +147,40 @@ export class WebSerialManager {
 
   private _processChunk(chunk: string): void {
     this.buffer += chunk;
-    const lines = this.buffer.split(/\r?\n/);
-    this.buffer = lines.pop() || '';
-    for (const line of lines) {
-      const trimmed = line.trim();
-      if (!trimmed) continue;
-      this.parseAndDispatch(trimmed);
+    const parts = this.buffer.split(/[\r\n]+/);
+    this.buffer = parts.pop() || '';
+
+    for (const part of parts) {
+      const line = part.trim();
+      if (!line) continue;
+      // 1. Immediately log raw incoming line so user sees telemetry in terminal!
+      this.onRawData?.('in', line);
+      // 2. Parse telemetry packet
+      this.parseAndDispatch(line);
+    }
+
+    // Flush buffer if no newline arrives within 400ms
+    if (this.flushTimer) clearTimeout(this.flushTimer);
+    if (this.buffer.trim().length > 0) {
+      this.flushTimer = setTimeout(() => {
+        if (this.buffer.trim().length > 0) {
+          const line = this.buffer.trim();
+          this.buffer = '';
+          this.onRawData?.('in', line);
+          this.parseAndDispatch(line);
+        }
+      }, 400);
     }
   }
 
-  /** Parses a raw UART line and calls onDataReceived. Supports KV and JSON formats. */
+  /** Parses a raw UART line and dispatches SensorReading if valid */
   public parseAndDispatch(rawText: string, activePlantCode: 0 | 1 = 0): boolean {
-    try {
-      let moisture: number | undefined;
-      let humidity: number | undefined;
-      let light: number | undefined;
-      let temperature: number = 25.0;
-      let isTempAssumed = true;
-      let condition: string | undefined;
-      let mlClassCode: 0 | 1 | 2 | undefined;
-      let plantCode: 0 | 1 = activePlantCode;
-      let humAdc: number | undefined;
-      let soilRaw: number | undefined;
-      let potAdc: number | undefined;
-      let sw1: number | undefined;
-      let sw2: number | undefined;
-
-      // ---- KEY=VALUE format (STM32 main.c output) ----
-      // PLANT=ALOE_VERA,ML_CLASS=0,ML_STATUS=HIGH STRESS,TEMP_C_ASSUMED=25,SOIL_PCT=0,HUM_RH_EST=20,...
-      if (rawText.includes('=')) {
-        const kv: Record<string, string> = {};
-        for (const part of rawText.replace(/[\r\n]/g, '').split(',')) {
-          const eqIdx = part.indexOf('=');
-          if (eqIdx !== -1) {
-            const k = part.substring(0, eqIdx).trim().toUpperCase();
-            const v = part.substring(eqIdx + 1).trim();
-            if (k) kv[k] = v;
-          }
-        }
-
-        if (kv['SOIL_PCT'] !== undefined) moisture = parseFloat(kv['SOIL_PCT']);
-        else if (kv['MOISTURE'] !== undefined) moisture = parseFloat(kv['MOISTURE']);
-
-        if (kv['HUM_RH_EST'] !== undefined) humidity = parseFloat(kv['HUM_RH_EST']);
-        else if (kv['HUMIDITY'] !== undefined) humidity = parseFloat(kv['HUMIDITY']);
-        else humidity = 50.0;
-
-        if (kv['LDR_ADC'] !== undefined) light = parseInt(kv['LDR_ADC'], 10);
-        else if (kv['LIGHT'] !== undefined) light = parseInt(kv['LIGHT'], 10);
-
-        if (kv['TEMP_C_ASSUMED'] !== undefined) {
-          temperature = parseFloat(kv['TEMP_C_ASSUMED']);
-          isTempAssumed = true;
-        } else if (kv['TEMP'] !== undefined || kv['TEMPERATURE'] !== undefined) {
-          const tv = parseFloat(kv['TEMP'] || kv['TEMPERATURE']);
-          if (!isNaN(tv)) { temperature = tv; isTempAssumed = false; }
-        }
-
-        if (kv['HUM_ADC'] !== undefined) humAdc = parseInt(kv['HUM_ADC'], 10);
-        if (kv['SOIL_RAW'] !== undefined) soilRaw = parseInt(kv['SOIL_RAW'], 10);
-        if (kv['POT_ADC'] !== undefined) potAdc = parseInt(kv['POT_ADC'], 10);
-        if (kv['SW1'] !== undefined) sw1 = parseInt(kv['SW1'], 10);
-        if (kv['SW2'] !== undefined) { sw2 = parseInt(kv['SW2'], 10); plantCode = sw2 === 1 ? 1 : 0; }
-
-        if (kv['ML_STATUS'] !== undefined) condition = kv['ML_STATUS'].replace(/_/g, ' ').trim();
-        if (kv['ML_CLASS'] !== undefined) {
-          const cls = parseInt(kv['ML_CLASS'], 10);
-          if (cls === 0 || cls === 1 || cls === 2) mlClassCode = cls;
-        }
-        if (kv['PLANT'] !== undefined) plantCode = kv['PLANT'].toUpperCase().includes('POTHOS') ? 1 : 0;
-
-      } else {
-        // ---- JSON format fallback ----
-        const s = rawText.indexOf('{');
-        const e = rawText.lastIndexOf('}');
-        if (s !== -1 && e > s) {
-          const parsed = JSON.parse(rawText.substring(s, e + 1));
-          moisture = typeof parsed.moisture === 'number' ? parsed.moisture : parsed.soil_humidity_pct;
-          humidity = typeof parsed.humidity === 'number' ? parsed.humidity : (parsed.air_humidity_pct ?? 50.0);
-          light = typeof parsed.light === 'number' ? parsed.light : parsed.ldr_on_plant;
-          if (typeof parsed.temperature === 'number') { temperature = parsed.temperature; isTempAssumed = false; }
-          else if (typeof parsed.temp === 'number') { temperature = parsed.temp; isTempAssumed = false; }
-          if (typeof parsed.condition === 'string') condition = parsed.condition;
-          if (parsed.mlClassCode === 0 || parsed.mlClassCode === 1 || parsed.mlClassCode === 2) mlClassCode = parsed.mlClassCode;
-          if (typeof parsed.plantCode === 'number') plantCode = parsed.plantCode === 1 ? 1 : 0;
-        }
-      }
-
-      if (moisture === undefined || light === undefined || isNaN(moisture) || isNaN(light)) {
-        return false;
-      }
-
-      // ---- ML Inference (local if not provided by hardware) ----
-      let suitabilityClass: 'suitable' | 'moderate_stress' | 'high_stress' = 'suitable';
-      let plantCond: PlantCondition = 'Suitable';
-
-      if (mlClassCode === undefined || condition === undefined) {
-        const diag = evaluatePlantModel(plantCode, moisture, temperature, humidity ?? 50, light, {
-          moistureMin: 10, moistureMax: 35, tempMin: 18, tempMax: 32,
-          humidityMin: 30, humidityMax: 60, lightMin: 2500, lightMax: 4095,
-        });
-        plantCond = diag.condition;
-        suitabilityClass = diag.suitabilityClass;
-        mlClassCode = diag.mlClassCode;
-      } else {
-        suitabilityClass = mlClassCode === 2 ? 'suitable' : mlClassCode === 1 ? 'moderate_stress' : 'high_stress';
-        plantCond = mlClassCode === 2 ? 'Suitable' : mlClassCode === 1 ? 'Moderate Stress' : 'High Stress';
-      }
-
-      const reading: SensorReading = {
-        moisture: parseFloat(moisture.toFixed(1)),
-        temperature: parseFloat(temperature.toFixed(1)),
-        humidity: parseFloat((humidity ?? 50.0).toFixed(1)),
-        light: Math.round(light),
-        condition: plantCond,
-        suitabilityClass,
-        mlClassCode,
-        timestamp: Date.now(),
-        confidence: mlClassCode === 2 ? 0.98 : mlClassCode === 1 ? 0.93 : 0.96,
-        isSynthetic: false,
-        isTempAssumed,
-        plantCode,
-        humAdc,
-        soilRaw,
-        potAdc,
-        sw1,
-        sw2,
-        rawString: rawText,
-      };
-
+    const reading = parseTelemetryPacket(rawText, activePlantCode);
+    if (reading) {
       this.onDataReceived?.(reading, rawText);
       return true;
-    } catch (e) {
-      return false;
     }
+    return false;
   }
 
   /** Send text command to STM32 over serial (e.g. CMD:READ\n) */
@@ -278,24 +200,37 @@ export class WebSerialManager {
 
   public async disconnect(): Promise<void> {
     this.isReading = false;
+    if (this.flushTimer) {
+      clearTimeout(this.flushTimer);
+      this.flushTimer = null;
+    }
     if (this.reader) {
-      try { await this.reader.cancel(); } catch (_) {}
-      try { this.reader.releaseLock(); } catch (_) {}
+      try {
+        await this.reader.cancel();
+      } catch (_) {}
+      try {
+        this.reader.releaseLock();
+      } catch (_) {}
       this.reader = null;
     }
     if (this.port) {
-      try { await this.port.close(); } catch (_) {}
+      try {
+        await this.port.close();
+      } catch (_) {}
       this.port = null;
     }
     this.buffer = '';
-    this.onStatusChanged?.('disconnected', 'STM32 serial port disconnected');
+    this.onStatusChanged?.('disconnected', 'Serial port disconnected');
   }
 
   public isConnected(): boolean {
     return !!this.port;
   }
 
-  // Keep legacy processChunk public for tests
+  public getBaudRate(): number {
+    return this.currentBaudRate;
+  }
+
   public processChunk(chunk: string): void {
     this._processChunk(chunk);
   }
