@@ -123,7 +123,8 @@ export const PlantProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     return [];
   });
 
-  const hasRealReading = connectionState === 'connected' && currentReading.timestamp > 0;
+  // hasRealReading: we have a real reading if timestamp > 0 (port may be connected but not yet sent first packet)
+  const hasRealReading = currentReading.timestamp > 0 && !currentReading.isSynthetic;
 
   const [refreshInterval, setRefreshIntervalState] = useState<number>(() => StorageService.getRefreshInterval());
   const [tempUnit, setTempUnitState] = useState<'C' | 'F'>(() => StorageService.getTempUnit());
@@ -137,7 +138,7 @@ export const PlantProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     return () => clearInterval(timer);
   }, []);
 
-  const isStale = hasRealReading && connectionState !== 'connected' && now - currentReading.timestamp > 30000;
+  const isStale = hasRealReading && (connectionState === 'disconnected') && (now - currentReading.timestamp > 30000);
 
   const addLog = useCallback((direction: 'in' | 'out' | 'sys', text: string) => {
     setSerialLogs((prev) => [
@@ -253,18 +254,20 @@ export const PlantProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         if (status === 'connected') {
           setConnectedDeviceName('STM32 Serial / HC-05');
           setConnectionProtocol('serial');
-          addLog('sys', 'Serial port opened');
+          addLog('sys', 'Serial port opened — streaming live readings');
         } else if (status === 'disconnected') {
           setConnectedDeviceName(null);
           setCurrentReading(EMPTY_READING);
           addLog('sys', 'Serial port disconnected');
+        } else if (status === 'error') {
+          addLog('sys', `Serial error: ${msg || 'Unknown'}`);
         }
         if (msg) setStatusMessage(msg);
       }
     );
 
-    // Auto-connect to previously granted serial port if available
-    webSerial.autoConnect().catch(() => {});
+    // On mount: attempt auto-connect to any previously permitted port (no dialog shown)
+    webSerial.autoConnect(9600).catch(() => {});
   }, [handleIncomingReading, addLog]);
 
   // Demo stream disabled — hardware readings only
