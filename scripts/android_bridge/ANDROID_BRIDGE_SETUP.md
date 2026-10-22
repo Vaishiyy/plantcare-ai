@@ -81,17 +81,20 @@ python bridge.py --simulate
 
 If you prefer using GUI apps on your phone:
 
+> [!NOTE]
+> **Hardware Sensor Configuration**: Your hardware includes the **Analog Soil Probe** (`SOIL_PCT`), **Analog Humidity HR202 sensor** (`HUM_RH_EST`), and **Analog Light LDR** (`LDR_ADC`). Because the hardware does not have a physical temperature sensor, temperature is calibrated to an assumed room temperature baseline (25°C), matching line 536 of your STM32 `main.c` firmware (`TEMP_C_ASSUMED=25`).
+
 1. **Serial Bluetooth Terminal** (by Kai Morich on Google Play):
    - Connect to paired `HC-05`.
-   - Verify live JSON lines are arriving:
-     `{"moisture":42,"temperature":26.5,"humidity":55,"light":2100,"condition":"Suitable"}`
+   - Verify live telemetry lines are arriving from your STM32:
+     `PLANT=ALOE_VERA,ML_CLASS=2,ML_STATUS=SUITABLE,TEMP_C_ASSUMED=25,SOIL_PCT=45,HUM_RH_EST=55,HUM_ADC=3200,SOIL_RAW=2100,LDR_ADC=2400,POT_ADC=1500,SW1=0,SW2=0`
 2. **HTTP Shortcuts** (by Bruno Bierbaumer on Google Play) or **MacroDroid**:
    - Create a webhook shortcut:
      - **URL**: `https://plantcare-ai-mocha.vercel.app/api/telemetry`
      - **Method**: `POST`
-     - **Header**: `Authorization: Bearer sk_live_plantcare_blackpill_f401`
-     - **Header**: `Content-Type: application/json`
-     - **Body**: Current received serial line
+     - **Header**: `Authorization: Bearer sk_live_plantcare_blackpill_f401` (if token set, otherwise omit)
+     - **Header**: `Content-Type: application/json` (or `text/plain`)
+     - **Body**: The received serial line
 
 ---
 

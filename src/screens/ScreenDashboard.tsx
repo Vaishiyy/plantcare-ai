@@ -178,6 +178,7 @@ export const ScreenDashboard: React.FC = () => {
 
         <SensorCard
           title="Temperature"
+          subtitle="25°C Assumed • No Sensor"
           value={displayTemp}
           unit={tempUnit === 'F' ? '°F' : '°C'}
           minTarget={displayTempMin}

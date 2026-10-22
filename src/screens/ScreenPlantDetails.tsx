@@ -254,7 +254,7 @@ export const ScreenPlantDetails: React.FC = () => {
               <div>
                 <span className="text-xs font-bold text-stone-800">Temperature</span>
                 <span className="text-[10px] text-stone-400 block">
-                  Target: {displayTempMin}° – {displayTempMax}°{tempUnit}
+                  Assumed Room Temp (25°C) • No Physical Sensor
                 </span>
               </div>
             </div>

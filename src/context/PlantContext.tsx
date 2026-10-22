@@ -242,7 +242,7 @@ export const PlantProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   // Demo stream using actual dataset records
   useEffect(() => {
-    if (!isDemoMode || connectionState === 'connected') return;
+    if (!isDemoMode || connectionState === 'connected' || connectionProtocol === 'cloud') return;
 
     const interval = setInterval(() => {
       let reading: SensorReading;
@@ -255,7 +255,7 @@ export const PlantProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }, refreshInterval);
 
     return () => clearInterval(interval);
-  }, [isDemoMode, connectionState, activeScenario, activeProfile, refreshInterval, handleIncomingReading]);
+  }, [isDemoMode, connectionState, connectionProtocol, activeScenario, activeProfile, refreshInterval, handleIncomingReading]);
 
   const setIsDemoMode = (enabled: boolean) => {
     setIsDemoModeState(enabled);
@@ -315,33 +315,44 @@ export const PlantProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     addLog('sys', 'Checking Cloud Bridge endpoint (/api/telemetry)...');
     setStatusMessage('Connecting to Cloud Bridge...');
     setConnectionState('connecting');
+    setConnectionProtocol('cloud');
+    setIsDemoModeState(false);
+    StorageService.saveDemoMode(false);
+
     const res = await cloudTelemetry.getLatest();
     if (res && res.success) {
-      if (res.reading && !res.isStale) {
+      if (res.reading) {
+        // Sync plant profile if STM32 selected a specific plant (SW2 on Black Pill)
+        if (typeof res.reading.plantCode === 'number' && res.reading.plantCode !== activeProfile.plantCode) {
+          const matching = profiles.find((p) => p.plantCode === res.reading?.plantCode);
+          if (matching) {
+            setActiveProfileId(matching.id);
+            StorageService.saveActiveProfileId(matching.id);
+          }
+        }
+
         handleIncomingReading(res.reading);
         if (res.history && res.history.length > 0) {
           setHistory(res.history);
           StorageService.saveTelemetryHistory(res.history);
         }
-        setConnectionState('connected');
-        setConnectionProtocol('cloud');
-        setConnectedDeviceName('STM32 via Android Bridge');
-        setStatusMessage('Live Telemetry from STM32 via Cloud Bridge');
-        setIsDemoModeState(false);
-        StorageService.saveDemoMode(false);
-        addLog('sys', 'Cloud Bridge connected: Live readings active');
+
+        if (!res.isStale) {
+          setConnectionState('connected');
+          setConnectedDeviceName('STM32 via Android Bridge');
+          setStatusMessage('Live Telemetry from STM32 via Cloud Bridge');
+          addLog('sys', 'Cloud Bridge connected: Live readings active');
+        } else {
+          setConnectionState('disconnected');
+          setConnectedDeviceName('STM32 Cloud Bridge (Offline)');
+          setStatusMessage('Cloud Bridge connected (last packet stale, waiting for fresh telemetry...)');
+          addLog('sys', 'Cloud Bridge: showing last known hardware reading');
+        }
         return true;
       } else {
         setConnectionState('connected');
-        setConnectionProtocol('cloud');
         setConnectedDeviceName('Cloud Bridge (Ready)');
-        setStatusMessage(
-          res.reading
-            ? 'Cloud Bridge connected (last packet stale, waiting for fresh telemetry...)'
-            : 'Cloud Bridge connected (waiting for first packet from Android...)'
-        );
-        setIsDemoModeState(false);
-        StorageService.saveDemoMode(false);
+        setStatusMessage('Cloud Bridge active (waiting for first packet from Android...)');
         addLog('sys', 'Cloud Bridge connected (listening for incoming packets)');
         return true;
       }
@@ -357,7 +368,7 @@ export const PlantProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     addLog('sys', 'Sending test telemetry packet to /api/telemetry...');
     const testSample: SensorReading = {
       moisture: 38.5,
-      temperature: 24.2,
+      temperature: 25.0,
       humidity: 52.0,
       light: 2850,
       condition: 'Suitable',
@@ -366,6 +377,7 @@ export const PlantProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       timestamp: Date.now(),
       confidence: 0.98,
       isSynthetic: false,
+      isTempAssumed: true,
     };
     const res = await cloudTelemetry.sendTestPacket(testSample, token);
     if (res.success) {
@@ -392,14 +404,24 @@ export const PlantProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       if (!isMounted) return;
 
       if (res && res.success && res.reading) {
+        // Automatically sync plant profile if hardware toggled (SW2 on STM32)
+        if (typeof res.reading.plantCode === 'number' && res.reading.plantCode !== activeProfile.plantCode) {
+          const matching = profiles.find((p) => p.plantCode === res.reading?.plantCode);
+          if (matching) {
+            setActiveProfileId(matching.id);
+            StorageService.saveActiveProfileId(matching.id);
+          }
+        }
+
+        handleIncomingReading(res.reading);
+
         if (!res.isStale) {
-          handleIncomingReading(res.reading);
           setConnectionState('connected');
           setConnectedDeviceName('STM32 via Android Bridge');
           setStatusMessage('Streaming live telemetry from STM32');
         } else {
           setConnectionState('disconnected');
-          setStatusMessage('Cloud Bridge: Hardware offline or no data received in >45s');
+          setStatusMessage('Cloud Bridge: Telemetry is stale (Android bridge offline)');
         }
       }
     };
@@ -410,7 +432,7 @@ export const PlantProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       isMounted = false;
       clearInterval(timer);
     };
-  }, [connectionProtocol, isDemoMode, refreshInterval, handleIncomingReading]);
+  }, [connectionProtocol, isDemoMode, refreshInterval, activeProfile.plantCode, profiles, handleIncomingReading]);
 
   const disconnectHardware = () => {
     if (connectionProtocol === 'ble') webBluetooth.disconnect();

@@ -4,6 +4,7 @@ import { LucideIcon } from 'lucide-react';
 
 interface SensorCardProps {
   title: string;
+  subtitle?: string;
   value: number;
   unit: string;
   minTarget: number;
@@ -16,6 +17,7 @@ interface SensorCardProps {
 
 export const SensorCard: React.FC<SensorCardProps> = ({
   title,
+  subtitle,
   value,
   unit,
   minTarget,
@@ -104,7 +106,7 @@ export const SensorCard: React.FC<SensorCardProps> = ({
               {title}
             </h3>
             <span className="text-[10px] text-stone-400 block leading-tight">
-              Ideal: {minTarget}–{maxTarget}{unit}
+              {subtitle || `Ideal: ${minTarget}–${maxTarget}${unit}`}
             </span>
           </div>
         </div>

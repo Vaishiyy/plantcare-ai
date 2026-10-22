@@ -136,7 +136,7 @@ export const ScreenLiveMonitoring: React.FC = () => {
 
           <div className="p-2.5 rounded-2xl bg-amber-50/80 border border-amber-100">
             <span className="text-[10px] text-amber-700 font-semibold block uppercase">
-              Temp
+              Temp (Assumed)
             </span>
             <span className="text-lg font-bold font-display text-amber-900 leading-tight">
               {currentReading.temperature}°C
