@@ -49,7 +49,9 @@ export class WebSerialManager {
       const isCancelled = err.name === 'NotFoundError' || err.message?.includes('User cancelled');
       this.onStatusChanged?.(
         isCancelled ? 'disconnected' : 'error',
-        isCancelled ? 'Serial port selection cancelled' : (err.message || 'Failed to open serial port')
+        isCancelled
+          ? 'Port selection cancelled. Click "Connect STM32 / Serial", select your COM port from the browser list, and click "Connect".'
+          : (err.message || 'Failed to open serial port')
       );
       this.port = null;
       return false;

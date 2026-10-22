@@ -262,6 +262,9 @@ export const PlantProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         if (msg) setStatusMessage(msg);
       }
     );
+
+    // Auto-connect to previously granted serial port if available
+    webSerial.autoConnect().catch(() => {});
   }, [handleIncomingReading, addLog]);
 
   // Demo stream disabled — hardware readings only
