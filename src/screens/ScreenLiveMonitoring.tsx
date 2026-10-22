@@ -12,6 +12,7 @@ import {
   Clock,
   Sparkles,
   Cpu,
+  Wifi,
 } from 'lucide-react';
 import { analyzeTelemetry } from '../services/ml/mlInference';
 
@@ -27,6 +28,9 @@ export const ScreenLiveMonitoring: React.FC = () => {
     refreshReadings,
     checkPlantHealth,
     connectSerial,
+    connectWifi,
+    espIp,
+    espPort,
     refreshInterval,
     setRefreshInterval,
   } = usePlant();
@@ -113,33 +117,33 @@ export const ScreenLiveMonitoring: React.FC = () => {
 
         {/* Offline Warning Notice if disconnected */}
         {connectionState !== 'connected' && (
-          <div className="p-3.5 bg-emerald-50/90 border border-emerald-200 rounded-2xl flex flex-col gap-2.5 text-stone-700">
+          <div className="p-3.5 bg-blue-50/90 border border-blue-200 rounded-2xl flex flex-col gap-2.5 text-stone-700">
             <div className="flex items-start gap-2.5">
-              <AlertTriangle className="w-4 h-4 text-emerald-700 shrink-0 mt-0.5" />
+              <Wifi className="w-4 h-4 text-blue-600 shrink-0 mt-0.5" />
               <div className="text-xs flex-1">
-                <span className="font-bold text-emerald-950 block">
+                <span className="font-bold text-blue-950 block">
                   STM32 Disconnected (Hardware Telemetry Offline)
                 </span>
                 <p className="text-stone-600 leading-snug">
-                  Read live sensor readings directly from your STM32 Black Pill over USB or HC-05 COM port without external terminal apps or manual typing.
+                  Read live sensor readings directly from your STM32 Black Pill via ESP8266 WiFi (or USB Serial) without external apps or manual typing.
                 </p>
               </div>
             </div>
 
-            <div className="flex items-center gap-2 pt-1 border-t border-emerald-200/80">
+            <div className="flex items-center gap-2 pt-1 border-t border-blue-200/80">
               <button
-                onClick={() => connectSerial(9600)}
-                className="flex-1 py-2 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-soft transition-all active:scale-[0.98]"
+                onClick={() => connectWifi(espIp, espPort)}
+                className="flex-1 py-2 px-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-soft transition-all active:scale-[0.98]"
               >
-                <Cpu className="w-3.5 h-3.5" />
-                <span>⚡ Connect STM32 Directly (9600 Baud)</span>
+                <Wifi className="w-3.5 h-3.5" />
+                <span>⚡ Connect ESP8266 WiFi ({espIp})</span>
               </button>
               <button
                 onClick={() => setIsTerminalOpen(true)}
-                className="py-2 px-3 rounded-xl bg-white hover:bg-stone-50 border border-emerald-300 text-emerald-900 font-bold text-xs flex items-center justify-center gap-1 shadow-soft transition-all active:scale-[0.98]"
+                className="py-2 px-3 rounded-xl bg-white hover:bg-stone-50 border border-blue-300 text-blue-950 font-bold text-xs flex items-center justify-center gap-1 shadow-soft transition-all active:scale-[0.98]"
               >
-                <Terminal className="w-3.5 h-3.5 text-emerald-600" />
-                <span>Open UART Monitor</span>
+                <Terminal className="w-3.5 h-3.5 text-blue-600" />
+                <span>Open Stream Monitor</span>
               </button>
             </div>
           </div>
@@ -152,7 +156,7 @@ export const ScreenLiveMonitoring: React.FC = () => {
             <div className="text-xs">
               <span className="font-bold block">Readings may be Stale</span>
               <p className="leading-snug">
-                No new data received in over 30 seconds. Verify plant monitor power and Bluetooth pairing.
+                No new data received in over 30 seconds. Verify STM32 power and ESP8266 WiFi connection.
               </p>
             </div>
           </div>

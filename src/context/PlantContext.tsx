@@ -13,6 +13,7 @@ import { StorageService, DEFAULT_PLANT_PROFILES } from '../services/storage/stor
 import { demoDataService } from '../services/demo/DemoDataService';
 import { webBluetooth } from '../services/bluetooth/WebBluetoothService';
 import { webSerial } from '../services/bluetooth/WebSerialService';
+import { espWifi } from '../services/wifi/EspWifiService';
 import { evaluatePlantModel } from '../services/ml/mlInference';
 import { cloudTelemetry } from '../services/api/cloudTelemetryService';
 
@@ -46,10 +47,16 @@ interface PlantContextType {
   statusMessage: string;
   connectBle: () => Promise<boolean>;
   connectSerial: (baudRate?: number) => Promise<boolean>;
+  connectWifi: (ip: string, port?: number) => void;
   connectCloud: () => Promise<boolean>;
   testCloudIngestion: (token?: string) => Promise<{ success: boolean; message?: string }>;
   disconnectHardware: () => void;
   serialLogs: SerialLogEntry[];
+  espIp: string;
+  setEspIp: (ip: string) => void;
+  espPort: number;
+  setEspPort: (port: number) => void;
+  transmitCommand: (text: string) => Promise<boolean>;
   injectManualPacket: (rawJson: string) => boolean;
 
   isDemoMode: boolean;
@@ -97,7 +104,7 @@ export const PlantProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   const [connectionState, setConnectionState] = useState<ConnectionState>('disconnected');
   const [connectionProtocol, setConnectionProtocolState] = useState<ConnectionProtocol>(() => {
-    return (localStorage.getItem('plant_connection_protocol') as ConnectionProtocol) || 'serial';
+    return (localStorage.getItem('plant_connection_protocol') as ConnectionProtocol) || 'wifi';
   });
 
   const setConnectionProtocol = useCallback((protocol: ConnectionProtocol) => {
@@ -108,6 +115,21 @@ export const PlantProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [connectedDeviceName, setConnectedDeviceName] = useState<string | null>(null);
   const [statusMessage, setStatusMessage] = useState<string>('Awaiting connection from STM32');
   const [serialLogs, setSerialLogs] = useState<SerialLogEntry[]>([]);
+  const [espIp, setEspIp] = useState<string>(() => localStorage.getItem('esp_ip') || '192.168.1.100');
+  const [espPort, setEspPortState] = useState<number>(() => {
+    const saved = localStorage.getItem('esp_port');
+    return saved ? parseInt(saved, 10) : 81;
+  });
+
+  const setEspIpPersisted = (ip: string) => {
+    setEspIp(ip);
+    localStorage.setItem('esp_ip', ip);
+  };
+
+  const setEspPortPersisted = (port: number) => {
+    setEspPortState(port);
+    localStorage.setItem('esp_port', port.toString());
+  };
 
   // Demo mode is completely disabled — strictly hardware readings only when STM32 is connected
   const [isDemoMode] = useState<boolean>(false);
@@ -252,7 +274,7 @@ export const PlantProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       (status, msg) => {
         setConnectionState(status);
         if (status === 'connected') {
-          setConnectedDeviceName('STM32 Serial / HC-05');
+          setConnectedDeviceName('STM32 Serial Link');
           setConnectionProtocol('serial');
           addLog('sys', 'Serial port opened — streaming live readings');
         } else if (status === 'disconnected') {
@@ -266,7 +288,27 @@ export const PlantProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       }
     );
 
-    // On mount: attempt auto-connect to any previously permitted port (no dialog shown)
+    // Register ESP8266 WiFi WebSocket callbacks
+    espWifi.registerCallbacks(
+      (reading, rawText) => handleIncomingReading(reading, rawText),
+      (status, msg) => {
+        setConnectionState(status);
+        if (status === 'connected') {
+          setConnectedDeviceName('STM32 via ESP8266 WiFi');
+          setConnectionProtocol('wifi');
+          addLog('sys', 'ESP8266 WiFi WebSocket connected — live streaming');
+        } else if (status === 'disconnected') {
+          setConnectedDeviceName(null);
+          setCurrentReading(EMPTY_READING);
+          addLog('sys', 'ESP8266 WiFi disconnected');
+        } else if (status === 'error') {
+          addLog('sys', `ESP8266 WiFi error: ${msg || 'Unknown'}`);
+        }
+        if (msg) setStatusMessage(msg);
+      }
+    );
+
+    // On mount: attempt auto-connect to any previously permitted USB serial port (no dialog)
     webSerial.autoConnect(9600).catch(() => {});
   }, [handleIncomingReading, addLog]);
 
@@ -282,9 +324,15 @@ export const PlantProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const refreshReadings = () => {
     if (connectionProtocol === 'cloud') {
       connectCloud();
+    } else if (connectionProtocol === 'wifi') {
+      setStatusMessage('Requesting reading from STM32 via ESP8266 WiFi...');
+      transmitCommand('CMD:READ');
+    } else if (connectionProtocol === 'serial') {
+      setStatusMessage('Requesting reading from STM32 via Serial...');
+      transmitCommand('CMD:READ');
     } else {
       setStatusMessage('Requesting reading from STM32...');
-      addLog('out', '{"cmd":"READ"}');
+      transmitCommand('CMD:READ');
     }
   };
 
@@ -309,6 +357,54 @@ export const PlantProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const connectSerial = async (baudRate = 9600): Promise<boolean> => {
     addLog('sys', `Opening Web Serial connection at ${baudRate} baud...`);
     return await webSerial.connect(baudRate);
+  };
+
+  const connectWifi = (ip: string, port: number = 81): void => {
+    setEspIpPersisted(ip);
+    setEspPortPersisted(port);
+    setConnectionProtocol('wifi');
+    addLog('sys', `Connecting to ESP8266 at ws://${ip}:${port}...`);
+    espWifi.connect(ip, port, '/');
+  };
+
+  const transmitCommand = async (text: string): Promise<boolean> => {
+    const cmd = text.trim();
+    if (!cmd) return false;
+    addLog('out', cmd);
+
+    if (connectionProtocol === 'wifi') {
+      const ok = await espWifi.send(cmd);
+      if (ok) {
+        setStatusMessage(`Transmitted to ESP8266: ${cmd}`);
+        return true;
+      } else {
+        setStatusMessage(`Transmission failed — check ESP8266 WiFi connection`);
+        return false;
+      }
+    } else if (connectionProtocol === 'serial') {
+      const ok = await webSerial.send(cmd + '\n');
+      if (ok) {
+        setStatusMessage(`Transmitted via Serial: ${cmd}`);
+        return true;
+      }
+      return false;
+    } else if (connectionProtocol === 'ble') {
+      const ok = await webBluetooth.send(cmd + '\n');
+      return ok;
+    } else if (connectionProtocol === 'cloud') {
+      try {
+        await fetch('/api/telemetry', {
+          method: 'POST',
+          headers: { 'Content-Type': 'text/plain' },
+          body: `CMD:${cmd}`,
+        });
+        setStatusMessage(`Transmitted via Cloud Bridge: ${cmd}`);
+        return true;
+      } catch (_) {
+        return false;
+      }
+    }
+    return false;
   };
 
   const connectCloud = async (): Promise<boolean> => {
@@ -451,6 +547,7 @@ export const PlantProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const disconnectHardware = () => {
     if (connectionProtocol === 'ble') webBluetooth.disconnect();
     else if (connectionProtocol === 'serial') webSerial.disconnect();
+    else if (connectionProtocol === 'wifi') espWifi.disconnect();
     setConnectionState('disconnected');
     setConnectedDeviceName(null);
     setCurrentReading(EMPTY_READING);
@@ -567,10 +664,16 @@ export const PlantProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         statusMessage,
         connectBle,
         connectSerial,
+        connectWifi,
         connectCloud,
         testCloudIngestion,
         disconnectHardware,
         serialLogs,
+        espIp,
+        setEspIp: setEspIpPersisted,
+        espPort,
+        setEspPort: setEspPortPersisted,
+        transmitCommand,
         injectManualPacket,
         isDemoMode,
         setIsDemoMode,

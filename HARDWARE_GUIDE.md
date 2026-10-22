@@ -1,19 +1,17 @@
-# 🔬 PlantCare AI — Hardware & Firmware Integration Guide
+# 🔬 PlantCare AI — Hardware & ESP8266 WiFi Firmware Guide
 
-This guide documents the physical hardware architecture, STM32 pin mappings, sensor calibration, Bluetooth module configuration, and firmware transmission code.
+This guide documents the physical hardware architecture, STM32 pin mappings, sensor calibration, **ESP8266 WiFi module configuration**, and bidirectional firmware code (receiving sensor telemetry and transmitting control commands).
 
 ---
 
 ## 1. System Hardware Architecture
 
 The physical embedded system consists of:
-- **STM32 Microcontroller**: STM32F401 / STM32F103 ("Blue Pill") / STM32F411 Nucleo (ARM Cortex-M core).
+- **STM32 Microcontroller**: STM32F401 Black Pill / STM32F103 ("Blue Pill") / STM32F411 Nucleo (ARM Cortex-M core).
 - **Soil Moisture Sensor**: Analog resistive/capacitive soil probe connected to an ADC channel.
 - **Light Dependent Resistor (LDR)**: Voltage divider circuit connected to an ADC channel.
 - **DHT11**: Digital Temperature and Humidity sensor connected to a GPIO pin.
-- **Bluetooth Module**:
-  - *Option A*: **HC-05 / HC-06** (Bluetooth Classic SPP via USART).
-  - *Option B*: **HM-10 / CC2541** (Bluetooth Low Energy GATT via USART).
+- **WiFi Module**: **ESP8266** (NodeMCU / Wemos D1 Mini / ESP-12E / ESP-01) running the PlantCare WebSocket & HTTP bridge.
 - **OLED Display**: 0.96" SSD1306 (128x64) communicating over I²C.
 
 ---
@@ -31,10 +29,10 @@ The physical embedded system consists of:
 | **DHT11 Sensor** | `DATA` | `PA4` | `GPIO_Output / Input` | Single-wire bidirectional DHT protocol |
 | | `VCC` | `3.3V` / `5V` | Power | Power rail (add 4.7kΩ pull-up to VCC) |
 | | `GND` | `GND` | Ground | Ground |
-| **Bluetooth (HC-05 / HM-10)**| `TXD` | `PA3` | `USART2_RX` | Connect Module TX to STM32 RX |
-| | `RXD` | `PA2` | `USART2_TX` | Connect Module RX to STM32 TX (use voltage divider if 3.3V logic) |
-| | `VCC` | `5V` | Power | Module 5V input |
-| | `GND` | `GND` | Ground | Common Ground |
+| **ESP8266 WiFi Module** | `TXD` (GPIO1) | `PA3` | `USART2_RX` | Connect ESP8266 TX to STM32 RX (Receiving commands/data) |
+| | `RXD` (GPIO3) | `PA2` | `USART2_TX` | Connect ESP8266 RX to STM32 TX (Transmitting telemetry) |
+| | `VCC` / `VIN` | `5V` / `3.3V` | Power | Module Power (use 5V for NodeMCU/D1, 3.3V for ESP-01) |
+| | `GND` | `GND` | Ground | Common Ground with STM32 |
 | **0.96" OLED Display** | `SCL` | `PB6` | `I2C1_SCL` | I²C Clock line |
 | | `SDA` | `PB7` | `I2C1_SDA` | I²C Data line |
 | | `VCC` | `3.3V` | Power | Power rail |
@@ -42,31 +40,31 @@ The physical embedded system consists of:
 
 ---
 
-## 3. Bluetooth Module Configuration
+## 3. ESP8266 WiFi Module Configuration & Firmware
 
-### HC-05 (Bluetooth Classic 2.0 SPP)
-Set HC-05 into AT command mode (hold button while powering on, LED blinks every 2 seconds):
-```text
-AT+NAME=PlantCare_HC05
-AT+ROLE=0                  (Slave mode)
-AT+UART=9600,0,0           (9600 baud, 1 stop bit, no parity)
-AT+PSWD="1234"             (Pairing PIN)
-```
+The ESP8266 firmware sketch is located at:
+📁 `firmware/esp8266_plantcare_bridge.ino`
 
-### HM-10 (Bluetooth Low Energy BLE 4.0)
-Send AT commands over UART:
-```text
-AT+NAMEPlantCare_BLE
-AT+BAUD0                   (9600 baud)
-AT+ROLE0                   (Peripheral mode)
-AT+TYPE0                   (No PIN bonding required for Web Bluetooth)
-```
+### How to Flash:
+1. Open **Arduino IDE**.
+2. Go to *File → Preferences* and add ESP8266 board URL:
+   `http://arduino.esp8266.com/stable/package_esp8266com_index.json`
+3. In *Tools → Board*, select **NodeMCU 1.0 (ESP-12E Module)** or **Generic ESP8266 Module**.
+4. Install library: **WebSockets** by Markus Sattler (*Sketch → Include Library → Manage Libraries*).
+5. Open `firmware/esp8266_plantcare_bridge.ino`, enter your home WiFi name and password:
+   ```cpp
+   const char* WIFI_SSID     = "YOUR_WIFI_SSID";
+   const char* WIFI_PASSWORD = "YOUR_WIFI_PASSWORD";
+   ```
+6. Click **Upload**.
+7. Open **Serial Monitor** at **9600 baud**. Note the assigned IP address (e.g., `192.168.1.105`).
+8. In the PlantCare AI web app (*Settings* or *UART Monitor*), enter `192.168.1.105` and click **Connect**.
 
 ---
 
 ## 4. STM32 Firmware Code Example (C / STM32CubeHAL)
 
-Here is the C transmission loop for STM32CubeIDE:
+Here is the bidirectional C loop for STM32CubeIDE transmitting telemetry to ESP8266 and receiving commands:
 
 ```c
 #include "main.h"
@@ -76,8 +74,11 @@ Here is the C transmission loop for STM32CubeIDE:
 extern UART_HandleTypeDef huart2;
 extern ADC_HandleTypeDef hadc1;
 
-// Buffer for formatted STM32 telemetry
+// Buffers for transmission & command reception
 char tx_buffer[256];
+char rx_char;
+char rx_cmd_buffer[64];
+uint8_t rx_index = 0;
 
 void Send_Plant_Telemetry(
     const char* plant,
@@ -99,8 +100,19 @@ void Send_Plant_Telemetry(
         "PLANT=%s,ML_CLASS=%d,ML_STATUS=%s,TEMP_C_ASSUMED=%d,SOIL_PCT=%d,HUM_RH_EST=%d,HUM_ADC=%d,SOIL_RAW=%d,LDR_ADC=%d,POT_ADC=%d,SW1=%d,SW2=%d\r\n",
         plant, ml_class, ml_status, temp_assumed, soil_pct, hum_rh_est, hum_adc, soil_raw, ldr_adc, pot_adc, sw1, sw2);
 
-    // Transmit over UART to Bluetooth module
+    // Transmit over USART2 to ESP8266 WiFi module
     HAL_UART_Transmit(&huart2, (uint8_t*)tx_buffer, len, 500);
+}
+
+// Handle incoming commands from Browser via ESP8266 (e.g. CMD:READ, CMD:WATER)
+void Process_Incoming_Command(const char* cmd)
+{
+    if (strstr(cmd, "CMD:WATER") != NULL) {
+        // Activate water relay / pump on PB5 for 3 seconds
+        HAL_GPIO_WritePin(GPIOB, GPIO_PIN_5, GPIO_PIN_SET);
+        HAL_Delay(3000);
+        HAL_GPIO_WritePin(GPIOB, GPIO_PIN_5, GPIO_PIN_RESET);
+    }
 }
 
 // Example Main Loop Sampling
@@ -135,8 +147,19 @@ int main(void)
         uint8_t ml_class = Predict_Plant_ML_Class(sw2, soil_pct, 25, hum_rh_est, ldr_adc);
         const char* ml_status = (ml_class == 2) ? "SUITABLE" : (ml_class == 1) ? "MODERATE STRESS" : "HIGH STRESS";
 
-        // 6. Send packet over Bluetooth UART
+        // 6. Transmit packet to ESP8266 WiFi module over USART2
         Send_Plant_Telemetry(plant_name, ml_class, ml_status, 25, soil_pct, hum_rh_est, hum_adc, soil_raw, ldr_adc, pot_adc, sw1, sw2);
+
+        // 7. Check for incoming commands from ESP8266
+        if (HAL_UART_Receive(&huart2, (uint8_t*)&rx_char, 1, 50) == HAL_OK) {
+            if (rx_char == '\n' || rx_char == '\r') {
+                rx_cmd_buffer[rx_index] = '\0';
+                Process_Incoming_Command(rx_cmd_buffer);
+                rx_index = 0;
+            } else if (rx_index < sizeof(rx_cmd_buffer) - 1) {
+                rx_cmd_buffer[rx_index++] = rx_char;
+            }
+        }
 
         // Transmit every 3 seconds
         HAL_Delay(3000);
@@ -146,20 +169,11 @@ int main(void)
 
 ---
 
-## 5. Hardware-Specific Steps (Requiring Physical Hardware)
+## 5. Bidirectional Testing Workflow
 
-The following calibration and testing steps require physical hardware in hand:
-
-1. **Soil Moisture Sensor Dry/Wet Calibration**:
-   - Record raw ADC reading in open air (100% dry: ~3200 ADC on 12-bit).
-   - Record raw ADC reading immersed in a glass of water (100% saturated: ~1200 ADC).
-   - Update linear mapping equation: `moisture_pct = 100 - ((raw - 1200) * 100 / (3200 - 1200))`.
-
-2. **LDR Lux Calibration**:
-   - Measure voltage divider resistance with a handheld lux meter to calibrate the polynomial conversion curve.
-
-3. **DHT11 Timing Calibration**:
-   - Adjust microsecond delay timer (`DWT_Delay_us`) to match specific crystal oscillator clock frequency (e.g. 84MHz on STM32F401).
-
-4. **Hardware Pairing & COM Port Binding**:
-   - On Windows, pair the HC-05 via *Settings → Bluetooth & Devices → Add Device*. Note the virtual COM port (e.g. `COM4`) assigned to the outgoing serial port.
+1. Power on STM32 and ESP8266.
+2. In the Web App, open **Settings** or the **Hardware Terminal**.
+3. Enter your ESP8266 IP address (e.g., `192.168.1.100`) and WebSocket Port `81`.
+4. Click **⚡ Connect ESP8266 WiFi**.
+5. Live sensor telemetry will display in the terminal and update the dashboard in real-time.
+6. Click **CMD:READ** or **CMD:WATER** to transmit a command over WiFi back to the ESP8266 and STM32!

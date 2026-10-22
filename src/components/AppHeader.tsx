@@ -1,6 +1,6 @@
 import React from 'react';
 import { usePlant } from '../context/PlantContext';
-import { Bluetooth, Radio, Bell, AlertTriangle, Cloud } from 'lucide-react';
+import { Bluetooth, Bell, AlertTriangle, Cloud, Wifi, Usb } from 'lucide-react';
 
 export const AppHeader: React.FC = () => {
   const {
@@ -20,6 +20,30 @@ export const AppHeader: React.FC = () => {
     month: 'short',
     day: 'numeric',
   });
+
+  const getConnectionIcon = () => {
+    if (connectionState !== 'connected') return <Wifi className="w-3.5 h-3.5 text-stone-400" />;
+    switch (connectionProtocol) {
+      case 'wifi': return <Wifi className="w-3.5 h-3.5 text-emerald-600" />;
+      case 'cloud': return <Cloud className="w-3.5 h-3.5 text-emerald-600" />;
+      case 'ble': return <Bluetooth className="w-3.5 h-3.5 text-emerald-600" />;
+      case 'serial': return <Usb className="w-3.5 h-3.5 text-emerald-600" />;
+      default: return <Wifi className="w-3.5 h-3.5 text-emerald-600" />;
+    }
+  };
+
+  const getConnectionLabel = () => {
+    if (connectionState === 'connected') {
+      return connectedDeviceName || (
+        connectionProtocol === 'wifi' ? 'ESP8266 WiFi' :
+        connectionProtocol === 'cloud' ? 'STM32 Cloud Live' :
+        connectionProtocol === 'ble' ? 'BLE Linked' :
+        'STM32 USB Serial'
+      );
+    }
+    if (connectionState === 'connecting') return 'Connecting...';
+    return 'STM32 Offline';
+  };
 
   return (
     <header className="px-4 pt-3 pb-2 sticky top-0 z-30 bg-cream-100/90 backdrop-blur-md border-b border-cream-200">
@@ -41,7 +65,7 @@ export const AppHeader: React.FC = () => {
             </h1>
           </div>
 
-          {/* Quick Actions (Alerts & Status) */}
+          {/* Alerts */}
           <div className="flex items-center gap-2">
             <button
               onClick={() => setActiveScreen('alerts')}
@@ -66,36 +90,19 @@ export const AppHeader: React.FC = () => {
               className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border transition-all ${
                 hasRealReading && connectionState === 'connected'
                   ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
-                  : connectionState === 'connected' || connectionState === 'connecting'
+                  : connectionState === 'connecting'
                   ? 'bg-blue-50 border-blue-200 text-blue-800 animate-pulse'
+                  : connectionState === 'error'
+                  ? 'bg-rose-50 border-rose-200 text-rose-700'
                   : 'bg-stone-100 border-stone-200 text-stone-600'
               }`}
             >
-              {connectionState === 'connected' ? (
-                connectionProtocol === 'cloud' ? (
-                  <>
-                    <Cloud className="w-3.5 h-3.5 text-emerald-600" />
-                    <span className="truncate max-w-[130px]">STM32 Cloud Live</span>
-                  </>
-                ) : (
-                  <>
-                    <Bluetooth className="w-3.5 h-3.5 text-emerald-600" />
-                    <span className="truncate max-w-[130px]">
-                      {connectedDeviceName || (connectionProtocol === 'ble' ? 'BLE Linked' : 'STM32 Serial')}
-                    </span>
-                  </>
-                )
-              ) : connectionState === 'connecting' ? (
-                <>
-                  <span className="w-2 h-2 rounded-full bg-blue-500 animate-ping" />
-                  <span>Connecting...</span>
-                </>
+              {connectionState === 'connecting' ? (
+                <span className="w-2 h-2 rounded-full bg-blue-500 animate-ping" />
               ) : (
-                <>
-                  <Bluetooth className="w-3.5 h-3.5 text-stone-400" />
-                  <span>STM32 Offline</span>
-                </>
+                getConnectionIcon()
               )}
+              <span className="truncate max-w-[130px]">{getConnectionLabel()}</span>
             </button>
 
             {isStale && (

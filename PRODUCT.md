@@ -19,13 +19,13 @@ PlantCare AI transforms raw telemetry from an STM32 microcontroller (measuring s
 Unlike generic industrial IoT dashboards or raw serial monitors, PlantCare AI delivers a warm, nature-inspired, consumer-grade mobile experience that honors real embedded telemetry while providing immediate educational, diagnostic, and demonstration value.
 
 ## Operating Context
-Used in university engineering laboratories, live project demonstrations, and domestic plant monitoring. The STM32 sends formatted JSON telemetry over Bluetooth (UART via HC-05/HC-06/BLE modules). The app connects seamlessly via Web Serial / Web Bluetooth and features a comprehensive Demo Mode with realistic simulation presets for presentations.
+Used in university engineering laboratories, live project demonstrations, and domestic plant monitoring. The STM32 sends formatted telemetry over UART to an ESP8266 WiFi module (which forwards live packets over WebSocket/HTTP). The app connects seamlessly via ESP8266 WiFi WebSocket or direct USB Serial.
 
 ## Capabilities and Constraints
 - 7 core screens: Home Dashboard, Plant Details, Live Monitoring, AI Health Analysis, History & Analytics, Alerts & Notifications, Settings & Device Connection.
 - Sensor Telemetry: Soil moisture (%), Temperature (°C), Humidity (%), Light intensity (lux/ADC).
 - 4 ML Condition Classes: Healthy, Needs Water, Too Dry, Poor Environment.
-- Hardware Integration: UART/SPP serial communication (HC-05/HC-06/USB-UART) and BLE GATT service parser with robust JSON validation, checksum/frame recovery, and live connection state management.
+- Hardware Integration: ESP8266 WiFi module (WebSocket ws://IP:81 & HTTP REST), Web Serial (USB-UART), and Cloud Bridge ingestion parser with robust format validation, checksum/frame recovery, and live connection state management.
 - Local persistence (localStorage) for user settings, custom thresholds, plant profiles, alert logs, and history data.
 - Offline and Stale Data handling with distinct visual indicators; no fabricated live connections.
 - CSV sensor data export for lab reports and project evaluations.
@@ -37,7 +37,7 @@ Used in university engineering laboratories, live project demonstrations, and do
 - Emotional register: Encouraging, clear, trustworthy, grounded in physical plant needs without false diagnostic claims.
 
 ## Evidence on Hand
-- STM32 sensor hardware architecture: ADC for Soil Moisture and LDR, GPIO for DHT11, UART for Bluetooth module (HC-05 / BLE), I2C for 0.96" OLED.
+- STM32 sensor hardware architecture: ADC for Soil Moisture and LDR, GPIO for DHT11, UART for WiFi module (ESP8266), I2C for 0.96" OLED.
 - Telemetry format: `{"moisture": 42, "temperature": 30.0, "humidity": 48, "light": 750, "condition": "Needs Water"}`.
 - ML classification output vocabulary: Healthy, Needs Water, Too Dry, Poor Environment.
 

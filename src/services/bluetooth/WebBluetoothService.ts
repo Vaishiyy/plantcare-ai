@@ -309,6 +309,26 @@ export class WebBluetoothManager {
     return this.device?.name || null;
   }
 
+  public async send(text: string): Promise<boolean> {
+    if (!this.characteristic) return false;
+    try {
+      const encoder = new TextEncoder();
+      const data = encoder.encode(text);
+      const char = this.characteristic as any;
+      if (typeof char.writeValueWithResponse === 'function') {
+        await char.writeValueWithResponse(data);
+      } else if (typeof char.writeValueWithoutResponse === 'function') {
+        await char.writeValueWithoutResponse(data);
+      } else if (typeof char.writeValue === 'function') {
+        await char.writeValue(data);
+      }
+      return true;
+    } catch (e) {
+      console.warn('[WebBluetooth] Send error:', e);
+      return false;
+    }
+  }
+
   public isConnected(): boolean {
     return !!(this.server && this.server.connected);
   }

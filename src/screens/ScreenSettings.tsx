@@ -4,7 +4,7 @@ import { SerialTerminalModal } from '../components/SerialTerminalModal';
 import { EditPlantModal } from '../components/EditPlantModal';
 import {
   Bluetooth,
-  Radio,
+  Wifi,
   Cpu,
   Download,
   Terminal,
@@ -12,11 +12,11 @@ import {
   Code,
   Database,
   Cloud,
-  Smartphone,
   Check,
   Copy,
   Sparkles,
   RefreshCw,
+  Radio,
 } from 'lucide-react';
 
 export const ScreenSettings: React.FC = () => {
@@ -27,6 +27,7 @@ export const ScreenSettings: React.FC = () => {
     statusMessage,
     connectBle,
     connectSerial,
+    connectWifi,
     connectCloud,
     testCloudIngestion,
     injectManualPacket,
@@ -39,6 +40,11 @@ export const ScreenSettings: React.FC = () => {
     setTempUnit,
     exportCsv,
     activeProfile,
+    espIp,
+    setEspIp,
+    espPort: contextEspPort,
+    setEspPort: contextSetEspPort,
+    transmitCommand,
   } = usePlant();
 
   const [isConnecting, setIsConnecting] = useState(false);
@@ -53,6 +59,8 @@ export const ScreenSettings: React.FC = () => {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [downloadSuccess, setDownloadSuccess] = useState(false);
   const [activeInfoTab, setActiveInfoTab] = useState<'about' | 'protocol' | 'model'>('model');
+  const [espIpInput, setEspIpInput] = useState<string>(espIp);
+  const [espPort, setEspPort] = useState<number>(81);
 
   const handleCloudConnect = async () => {
     setIsConnecting(true);
@@ -92,6 +100,13 @@ export const ScreenSettings: React.FC = () => {
     setIsConnecting(false);
   };
 
+  const handleWifiConnect = () => {
+    const trimmedIp = espIpInput.trim();
+    if (!trimmedIp) return;
+    setEspIp(trimmedIp);
+    connectWifi(trimmedIp, espPort);
+  };
+
   const handleExport = () => {
     const ok = exportCsv();
     if (ok) {
@@ -106,15 +121,15 @@ export const ScreenSettings: React.FC = () => {
       <div className="bg-white rounded-3xl border border-cream-200 p-5 shadow-card space-y-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <div className="p-2 rounded-xl bg-forest-100 text-forest-700">
-              <Bluetooth className="w-5 h-5" />
+            <div className="p-2 rounded-xl bg-blue-100 text-blue-700">
+              <Wifi className="w-5 h-5" />
             </div>
             <div>
               <h2 className="text-sm font-bold font-display text-forest-900">
                 Hardware & Wireless Link
               </h2>
               <span className="text-xs text-stone-500">
-                STM32 Bluetooth (BLE or HC-05 Classic UART)
+                STM32 ESP8266 WiFi & Hardware Link
               </span>
             </div>
           </div>
@@ -145,193 +160,203 @@ export const ScreenSettings: React.FC = () => {
         </div>
 
         {connectionState === 'connected' ? (
-          <div className="space-y-2">
-            <div className="p-3 bg-emerald-50/70 border border-emerald-200 rounded-2xl flex items-center justify-between">
+          <div className="space-y-3">
+            <div className="p-3.5 bg-emerald-50/90 border border-emerald-200 rounded-2xl flex items-center justify-between">
               <div>
                 <span className="text-xs font-bold text-emerald-900 block">
                   {connectedDeviceName || 'Connected Peripheral'}
                 </span>
                 <span className="text-[11px] text-emerald-700">
-                  Streaming telemetry via {connectionProtocol.toUpperCase()}
+                  Streaming live telemetry via {connectionProtocol.toUpperCase()}
                 </span>
               </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setIsTerminalOpen(true)}
+                  className="py-1.5 px-3 rounded-xl bg-white border border-emerald-300 text-emerald-900 hover:bg-emerald-50 font-semibold text-xs transition-colors shadow-soft flex items-center gap-1"
+                >
+                  <Terminal className="w-3.5 h-3.5 text-emerald-600" />
+                  <span>Stream Terminal</span>
+                </button>
+                <button
+                  onClick={disconnectHardware}
+                  className="py-1.5 px-3 rounded-xl bg-white border border-rose-200 text-rose-700 hover:bg-rose-50 font-semibold text-xs transition-colors shadow-soft"
+                >
+                  Disconnect
+                </button>
+              </div>
+            </div>
+
+            {/* Quick Transmit Bar */}
+            <div className="p-3 bg-stone-50 border border-stone-200 rounded-2xl flex items-center gap-2 overflow-x-auto">
+              <span className="text-xs font-semibold text-stone-700 shrink-0">Transmit TX:</span>
               <button
-                onClick={disconnectHardware}
-                className="py-1.5 px-3 rounded-xl bg-white border border-rose-200 text-rose-700 hover:bg-rose-50 font-semibold text-xs transition-colors shadow-soft"
+                onClick={() => transmitCommand('CMD:READ')}
+                className="px-2.5 py-1 bg-white hover:bg-stone-100 border border-stone-200 rounded-lg text-xs font-mono font-bold text-stone-800 transition-colors shadow-xs shrink-0"
               >
-                Disconnect
+                CMD:READ
+              </button>
+              <button
+                onClick={() => transmitCommand('CMD:WATER')}
+                className="px-2.5 py-1 bg-white hover:bg-stone-100 border border-stone-200 rounded-lg text-xs font-mono font-bold text-stone-800 transition-colors shadow-xs shrink-0"
+              >
+                CMD:WATER
+              </button>
+              <button
+                onClick={() => transmitCommand('CMD:PING')}
+                className="px-2.5 py-1 bg-white hover:bg-stone-100 border border-stone-200 rounded-lg text-xs font-mono font-bold text-stone-800 transition-colors shadow-xs shrink-0"
+              >
+                CMD:PING
               </button>
             </div>
           </div>
         ) : (
           <div className="space-y-3">
-            {/* 1. PRIMARY OPTION: Direct Serial Stream (USB / Bluetooth HC-05 COM) */}
-            <div className="p-4 bg-emerald-50/80 border-2 border-emerald-300 rounded-3xl space-y-3 shadow-soft">
-              <div className="flex items-start justify-between">
-                <div className="flex items-center gap-2.5">
-                  <div className="p-2.5 rounded-2xl bg-emerald-600 text-white shadow-soft">
-                    <Cpu className="w-5 h-5" />
-                  </div>
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <h3 className="text-sm font-bold text-emerald-950 font-display">
-                        Direct STM32 Serial Stream
-                      </h3>
-                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-200/80 text-emerald-900 border border-emerald-300">
-                        Primary / Auto-Streaming
-                      </span>
-                    </div>
-                    <span className="text-[11px] text-emerald-800 block">
-                      USB Cable (ST-Link VCP / CH340) or Windows Paired HC-05 COM Port
+            {/* 1. PRIMARY: ESP8266 WiFi WebSocket */}
+            <div className="p-4 bg-blue-50/80 border-2 border-blue-300 rounded-3xl space-y-3 shadow-soft">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2.5 rounded-2xl bg-blue-600 text-white shadow-soft">
+                  <Wifi className="w-5 h-5" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-sm font-bold text-blue-950 font-display">ESP8266 WiFi Direct Stream</h3>
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-200/80 text-blue-900 border border-blue-300">
+                      Primary / WebSocket
                     </span>
                   </div>
+                  <span className="text-[11px] text-blue-800 block">
+                    STM32 → ESP8266 (UART) → WiFi → Browser (WebSocket ws://IP:81)
+                  </span>
                 </div>
               </div>
 
               <p className="text-xs text-stone-600 leading-snug">
-                Reads live sensor readings directly from your STM32 hardware in real time. No external terminal application or manual data typing required!
+                ESP8266 forwards live STM32 UART sensor readings over WebSocket on your local network.
+                Enter your ESP8266's IP address (found on Serial Monitor after it connects to WiFi).
               </p>
 
-              {/* Baud Rate Selection */}
-              <div className="flex items-center justify-between text-xs text-stone-700 bg-white/70 p-2.5 rounded-xl border border-emerald-200">
-                <span className="font-semibold text-stone-800">UART Baud Rate:</span>
-                <div className="flex gap-1.5 font-mono">
-                  {[9600, 115200].map((baud) => (
-                    <button
-                      key={baud}
-                      onClick={() => setBaudRate(baud)}
-                      className={`px-3 py-1 rounded-lg text-xs font-bold transition-all ${
-                        baudRate === baud
-                          ? 'bg-emerald-600 text-white shadow-sm'
-                          : 'bg-emerald-100/60 text-emerald-900 hover:bg-emerald-100'
-                      }`}
-                    >
-                      {baud} {baud === 9600 ? '(Default)' : ''}
-                    </button>
-                  ))}
+              {/* IP + Port inputs */}
+              <div className="space-y-2">
+                <div className="flex gap-2">
+                  <div className="flex-1">
+                    <label className="text-[10px] font-semibold text-stone-600 uppercase tracking-wide block mb-1">
+                      ESP8266 IP Address
+                    </label>
+                    <input
+                      type="text"
+                      value={espIpInput}
+                      onChange={(e) => setEspIpInput(e.target.value)}
+                      placeholder="192.168.1.100"
+                      className="w-full px-3 py-2 rounded-xl border border-blue-200 bg-white text-xs font-mono text-stone-800 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-200"
+                      onKeyDown={(e) => e.key === 'Enter' && handleWifiConnect()}
+                    />
+                  </div>
+                  <div className="w-20">
+                    <label className="text-[10px] font-semibold text-stone-600 uppercase tracking-wide block mb-1">
+                      WS Port
+                    </label>
+                    <input
+                      type="number"
+                      value={espPort}
+                      onChange={(e) => setEspPort(parseInt(e.target.value) || 81)}
+                      className="w-full px-3 py-2 rounded-xl border border-blue-200 bg-white text-xs font-mono text-stone-800 focus:outline-none focus:border-blue-500"
+                    />
+                  </div>
                 </div>
-              </div>
-
-              {/* Action Buttons */}
-              <div className="grid grid-cols-2 gap-2 pt-1">
-                <button
-                  onClick={handleSerialConnect}
-                  disabled={isConnecting}
-                  className="py-2.5 px-3 rounded-2xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-soft transition-all active:scale-[0.98]"
-                >
-                  <Cpu className="w-4 h-4" />
-                  <span>{isConnecting ? 'Connecting...' : '⚡ Connect STM32 Directly'}</span>
-                </button>
 
                 <button
-                  onClick={() => setIsTerminalOpen(true)}
-                  className="py-2.5 px-3 rounded-2xl bg-white hover:bg-stone-50 border border-emerald-300 text-emerald-900 font-bold text-xs flex items-center justify-center gap-1.5 shadow-soft transition-all active:scale-[0.98]"
+                  onClick={handleWifiConnect}
+                  disabled={isConnecting || !espIpInput.trim()}
+                  className="w-full py-2.5 px-3 rounded-2xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-soft transition-all active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  <Terminal className="w-4 h-4 text-emerald-600" />
-                  <span>Open Live UART Monitor</span>
+                  <Wifi className="w-4 h-4" />
+                  <span>Connect to ESP8266 WiFi</span>
                 </button>
               </div>
             </div>
 
-            {/* 2. Web Bluetooth Direct (BLE HM-10) */}
-            <div className="p-3 bg-cream-50/90 border border-cream-200 rounded-2xl flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <div className="p-2 rounded-xl bg-forest-100 text-forest-700">
-                  <Bluetooth className="w-4 h-4" />
+            {/* 2. USB Serial (STM32 directly via USB cable) */}
+            <details className="group p-3 bg-emerald-50/80 border border-emerald-200 rounded-2xl">
+              <summary className="cursor-pointer text-xs font-bold text-stone-800 flex items-center justify-between select-none">
+                <div className="flex items-center gap-2">
+                  <Cpu className="w-4 h-4 text-emerald-700" />
+                  <span>USB Direct Serial (STM32 USB Cable)</span>
                 </div>
-                <div>
-                  <h4 className="text-xs font-bold text-stone-900">Direct Web Bluetooth (BLE)</h4>
-                  <span className="text-[10px] text-stone-500">For HM-10 / Nordic BLE modules</span>
+                <span className="text-[10px] font-normal text-stone-500 group-open:hidden">Expand</span>
+              </summary>
+              <div className="pt-3 space-y-2">
+                <p className="text-[11px] text-stone-600 leading-snug">
+                  Connect STM32 directly to this PC via USB. Uses Web Serial API (Chrome/Edge only).
+                  Select your COM port from the browser dialog.
+                </p>
+                <div className="flex items-center justify-between text-xs text-stone-700 bg-white/70 p-2 rounded-xl border border-emerald-200">
+                  <span className="font-semibold text-stone-800">Baud Rate:</span>
+                  <div className="flex gap-1.5 font-mono">
+                    {[9600, 115200].map((baud) => (
+                      <button key={baud} onClick={() => setBaudRate(baud)}
+                        className={`px-3 py-1 rounded-lg text-xs font-bold transition-all ${baudRate === baud ? 'bg-emerald-600 text-white' : 'bg-emerald-100 text-emerald-900 hover:bg-emerald-200'}`}>
+                        {baud}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <button onClick={handleSerialConnect} disabled={isConnecting}
+                    className="py-2 px-3 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center justify-center gap-1.5 transition-all active:scale-[0.98]">
+                    <Cpu className="w-3.5 h-3.5" /><span>Connect USB Serial</span>
+                  </button>
+                  <button onClick={() => setIsTerminalOpen(true)}
+                    className="py-2 px-3 rounded-2xl bg-white border border-emerald-300 text-emerald-900 font-bold text-xs flex items-center justify-center gap-1.5 transition-all active:scale-[0.98]">
+                    <Terminal className="w-3.5 h-3.5" /><span>UART Monitor</span>
+                  </button>
                 </div>
               </div>
-              <button
-                onClick={handleBleConnect}
-                disabled={isConnecting}
-                className="py-1.5 px-3 rounded-xl bg-forest-600 hover:bg-forest-700 text-white font-semibold text-xs transition-all active:scale-[0.98]"
-              >
-                Connect BLE
-              </button>
-            </div>
+            </details>
 
-            {/* 3. Remote Cloud Bridge (Optional Android Relay) */}
+            {/* 3. BLE (optional) */}
+            <details className="group p-3 bg-cream-50/90 border border-cream-200 rounded-2xl">
+              <summary className="cursor-pointer text-xs font-bold text-stone-800 flex items-center justify-between select-none">
+                <div className="flex items-center gap-2">
+                  <Bluetooth className="w-4 h-4 text-stone-500" />
+                  <span>Direct Web Bluetooth BLE (HM-10)</span>
+                </div>
+                <span className="text-[10px] font-normal text-stone-500 group-open:hidden">Expand</span>
+              </summary>
+              <div className="pt-3">
+                <button onClick={handleBleConnect} disabled={isConnecting}
+                  className="w-full py-2 px-3 rounded-xl bg-forest-600 hover:bg-forest-700 text-white font-semibold text-xs transition-all active:scale-[0.98]">
+                  Connect BLE
+                </button>
+              </div>
+            </details>
+
+            {/* 4. Cloud Bridge (optional) */}
             <details className="group p-3 bg-stone-50 border border-stone-200 rounded-2xl">
               <summary className="cursor-pointer text-xs font-bold text-stone-800 flex items-center justify-between select-none">
                 <div className="flex items-center gap-2">
                   <Cloud className="w-4 h-4 text-stone-500" />
-                  <span>Remote Cloud Bridge (Android Relay Option)</span>
+                  <span>ESP8266 → Cloud HTTP Bridge</span>
                 </div>
-                <span className="text-[10px] font-normal text-stone-500 group-open:hidden">Click to expand</span>
+                <span className="text-[10px] font-normal text-stone-500 group-open:hidden">Expand</span>
               </summary>
-
               <div className="pt-3 space-y-2.5">
                 <p className="text-[11px] text-stone-600 leading-snug">
-                  Use this if your STM32 is connected to an Android phone running an HTTP forwarder relaying data over the cloud.
+                  ESP8266 POSTs readings to <code className="bg-stone-100 px-1 rounded text-stone-800">/api/telemetry</code> via HTTP.
+                  Web app polls this endpoint. Works from any network (no local WiFi needed).
                 </p>
-
-                <div className="flex items-center justify-between">
-                  <span className="text-[11px] font-medium text-stone-700">Cloud Ingestion State:</span>
-                  <button
-                    onClick={handleCloudConnect}
-                    disabled={isConnecting}
-                    className="py-1 px-3 rounded-xl bg-stone-800 hover:bg-stone-900 text-white font-semibold text-xs transition-colors"
-                  >
-                    Sync Cloud Telemetry
+                <div className="flex items-center gap-1.5 p-2 bg-white rounded-xl border border-cream-300 text-[11px] font-mono text-stone-700">
+                  <span className="truncate flex-1 select-all">
+                    {typeof window !== 'undefined' ? `${window.location.origin}/api/telemetry` : '/api/telemetry'}
+                  </span>
+                  <button onClick={copyEndpointUrl} className="p-1 rounded-lg hover:bg-cream-100 text-stone-500">
+                    {copiedUrl ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
                   </button>
                 </div>
-
-                {/* Endpoint URL display */}
-                <div className="space-y-1">
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-stone-500 block">
-                    Bridge Ingestion Endpoint:
-                  </span>
-                  <div className="flex items-center gap-1.5 p-2 bg-white rounded-xl border border-cream-300 text-[11px] font-mono text-stone-700">
-                    <span className="truncate flex-1 select-all">
-                      {typeof window !== 'undefined' ? `${window.location.origin}/api/telemetry` : '/api/telemetry'}
-                    </span>
-                    <button
-                      onClick={copyEndpointUrl}
-                      className="p-1 rounded-lg hover:bg-cream-100 text-stone-500 hover:text-forest-700 transition-colors"
-                      title="Copy URL"
-                    >
-                      {copiedUrl ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
-                    </button>
-                  </div>
-                </div>
-
-                {/* Offline Debug Ingest */}
-                <div className="pt-2 border-t border-stone-200 space-y-1.5">
-                  <div className="flex items-center justify-between text-[10px] text-stone-500">
-                    <span className="font-semibold text-stone-700">Offline Manual Ingestion (Testing Only):</span>
-                    {manualIngestMsg && (
-                      <span className="font-semibold text-emerald-700">{manualIngestMsg}</span>
-                    )}
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    <input
-                      type="text"
-                      placeholder="PLANT=ALOE_VERA,ML_CLASS=0,ML_STATUS=HIGH STRESS..."
-                      value={manualLineInput}
-                      onChange={(e) => setManualLineInput(e.target.value)}
-                      className="flex-1 px-2.5 py-1.5 rounded-xl border border-stone-300 bg-white text-xs font-mono"
-                    />
-                    <button
-                      onClick={() => {
-                        if (!manualLineInput.trim()) return;
-                        const ok = injectManualPacket(manualLineInput.trim());
-                        if (ok) {
-                          setManualIngestMsg('✓ Applied to Dashboard!');
-                          setManualLineInput('');
-                        } else {
-                          setManualIngestMsg('✕ Invalid format');
-                        }
-                        setTimeout(() => setManualIngestMsg(null), 3000);
-                      }}
-                      className="py-1.5 px-3 rounded-xl bg-stone-700 hover:bg-stone-800 text-white font-semibold text-xs transition-colors shrink-0"
-                    >
-                      Ingest
-                    </button>
-                  </div>
-                </div>
+                <button onClick={handleCloudConnect} disabled={isConnecting}
+                  className="w-full py-1.5 px-3 rounded-xl bg-stone-800 hover:bg-stone-900 text-white font-semibold text-xs transition-colors">
+                  Sync Cloud Telemetry
+                </button>
               </div>
             </details>
           </div>
@@ -531,7 +556,7 @@ export const ScreenSettings: React.FC = () => {
           <div className="space-y-3 text-xs">
             <div>
               <span className="font-semibold text-stone-800 block mb-1">
-                1. STM32 UART Transmission Format (9600 baud, delimited by \r\n):
+                1. STM32 UART Transmission Format (9600 baud, \r\n delimited):
               </span>
               <pre className="p-3 bg-stone-900 text-emerald-300 rounded-2xl font-mono text-[11px] overflow-x-auto leading-relaxed">
 PLANT=ALOE_VERA,ML_CLASS=0,ML_STATUS=HIGH STRESS,TEMP_C_ASSUMED=25,SOIL_PCT=0,HUM_RH_EST=20,HUM_ADC=4041,SOIL_RAW=4095,LDR_ADC=1827,POT_ADC=1237,SW1=0,SW2=0
@@ -540,16 +565,44 @@ PLANT=ALOE_VERA,ML_CLASS=0,ML_STATUS=HIGH STRESS,TEMP_C_ASSUMED=25,SOIL_PCT=0,HU
 
             <div>
               <span className="font-semibold text-stone-800 block mb-1">
-                2. Android HTTPS Bridge Webhook (POST /api/telemetry):
+                2. ESP8266 Arduino Sketch — WebSocket Server (port 81):
               </span>
-              <pre className="p-3 bg-stone-900 text-sky-300 rounded-2xl font-mono text-[11px] overflow-x-auto leading-relaxed">
-{`POST /api/telemetry HTTP/1.1
+              <pre className="p-3 bg-stone-900 text-yellow-300 rounded-2xl font-mono text-[11px] overflow-x-auto leading-relaxed">{`#include <ESP8266WiFi.h>
+#include <WebSocketsServer.h>
+
+const char* ssid = "YOUR_WIFI_SSID";
+const char* password = "YOUR_WIFI_PASSWORD";
+
+WebSocketsServer webSocket(81);
+
+void setup() {
+  Serial.begin(9600); // Match STM32 baud
+  WiFi.begin(ssid, password);
+  while (WiFi.status() != WL_CONNECTED) delay(500);
+  Serial.print("IP: "); Serial.println(WiFi.localIP());
+  webSocket.begin();
+}
+
+void loop() {
+  webSocket.loop();
+  if (Serial.available()) {
+    String line = Serial.readStringUntil('\\n');
+    line.trim();
+    if (line.length() > 0)
+      webSocket.broadcastTXT(line); // forward to browser
+  }
+}`}</pre>
+            </div>
+
+            <div>
+              <span className="font-semibold text-stone-800 block mb-1">
+                3. ESP8266 HTTP POST to Cloud Bridge (alternative):
+              </span>
+              <pre className="p-3 bg-stone-900 text-sky-300 rounded-2xl font-mono text-[11px] overflow-x-auto leading-relaxed">{`POST /api/telemetry HTTP/1.1
 Host: plantcare-ai-mocha.vercel.app
 Content-Type: text/plain
-Authorization: Bearer <DEVICE_AUTH_TOKEN>
 
-PLANT=ALOE_VERA,ML_CLASS=0,ML_STATUS=HIGH STRESS,TEMP_C_ASSUMED=25,SOIL_PCT=0,HUM_RH_EST=20,HUM_ADC=4041,SOIL_RAW=4095,LDR_ADC=1827,POT_ADC=1237,SW1=0,SW2=0`}
-              </pre>
+PLANT=ALOE_VERA,ML_CLASS=0,ML_STATUS=HIGH STRESS,...`}</pre>
             </div>
           </div>
         )}
@@ -559,7 +612,7 @@ PLANT=ALOE_VERA,ML_CLASS=0,ML_STATUS=HIGH STRESS,TEMP_C_ASSUMED=25,SOIL_PCT=0,HU
             <div className="p-3 bg-cream-50 rounded-2xl border border-cream-200 text-[11px] space-y-1">
               <div><strong>PA0 (ADC1_IN0):</strong> Analog Soil Moisture Probe</div>
               <div><strong>PA1 (ADC1_IN1):</strong> LDR Light Sensor (0-4095)</div>
-              <div><strong>PA2/PA3 (USART2):</strong> HC-05 / HM-10 Bluetooth Module</div>
+              <div><strong>PA2/PA3 (USART2):</strong> ESP8266 WiFi Module (TX→PA3, RX→PA2, 9600 baud)</div>
               <div><strong>PA4 (GPIO):</strong> DHT11 Temperature & Air Humidity Sensor</div>
               <div><strong>PB6/PB7 (I2C1):</strong> SSD1306 0.96" OLED Display</div>
             </div>

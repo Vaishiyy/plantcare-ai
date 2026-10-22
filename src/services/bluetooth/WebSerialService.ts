@@ -41,7 +41,7 @@ export class WebSerialManager {
     }
 
     try {
-      this.onStatusChanged?.('connecting', 'Opening port selector — choose your STM32 USB or HC-05 COM port...');
+      this.onStatusChanged?.('connecting', 'Opening port selector — choose your STM32 USB or Serial UART port...');
       this.port = await (navigator as any).serial.requestPort();
       return await this._openAndStream(baudRate);
     } catch (err: any) {
@@ -257,6 +257,21 @@ export class WebSerialManager {
       this.onDataReceived?.(reading, rawText);
       return true;
     } catch (e) {
+      return false;
+    }
+  }
+
+  /** Send text command to STM32 over serial (e.g. CMD:READ\n) */
+  public async send(text: string): Promise<boolean> {
+    if (!this.port || !this.port.writable) return false;
+    try {
+      const encoder = new TextEncoder();
+      const writer = this.port.writable.getWriter();
+      await writer.write(encoder.encode(text));
+      writer.releaseLock();
+      return true;
+    } catch (e) {
+      console.error('[WebSerial] Transmit error:', e);
       return false;
     }
   }

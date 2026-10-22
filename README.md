@@ -63,7 +63,7 @@ int predict_plant_suitability(const float features[5]);
    - Intelligent deduplication: avoids repeating notifications for unchanged conditions.
 
 7. **Settings & Hardware Link**
-   - **Dual-Mode Wireless Connect**: Web Bluetooth (BLE GATT) & Web Serial (HC-05 / USB-UART).
+   - **Dual-Mode Wireless Link**: ESP8266 WiFi Direct Stream (WebSocket ws://IP:81 & HTTP) & Web Serial (USB-UART).
    - **Dataset Simulation Mode**: Switch between live STM32 hardware and physical dataset streaming.
    - **Raw Telemetry Terminal**: Inspect incoming UART packets or inject manual test payloads.
 
