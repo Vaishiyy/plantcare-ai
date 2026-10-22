@@ -96,6 +96,8 @@ export const ScreenDashboard: React.FC = () => {
 
           <HealthProgressRing
             condition={diagnostic.condition}
+            healthScore={diagnostic.healthScore}
+            mlClassCode={diagnostic.mlClassCode}
             confidence={currentReading.confidence}
             size={105}
             strokeWidth={8}

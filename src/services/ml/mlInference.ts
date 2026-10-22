@@ -22,10 +22,11 @@ export interface ConditionDiagnostic {
     humidity: number;
     light: number;
   };
+  healthScore: number; // 0 - 100 % dynamic health percentage
   confidenceDisplay?: string;
 }
 
-export const SUITABILITY_METADATA: Record<SuitabilityClass, Omit<ConditionDiagnostic, 'factorWeights' | 'explanation' | 'confidenceDisplay' | 'mlClassCode' | 'suitabilityClass'>> = {
+export const SUITABILITY_METADATA: Record<SuitabilityClass, Omit<ConditionDiagnostic, 'factorWeights' | 'explanation' | 'confidenceDisplay' | 'mlClassCode' | 'suitabilityClass' | 'healthScore'>> = {
   Suitable: {
     condition: 'Suitable',
     headline: 'Healthy & Thriving',
@@ -186,6 +187,26 @@ export function evaluatePlantModel(
     }
   }
 
+  // Dynamic plant health score (0 - 100%) that scales with condition & sensor deviation
+  let healthScore = 95;
+  const mTarget = (thresholds.moistureMin + thresholds.moistureMax) / 2;
+  const mRange = Math.max(10, (thresholds.moistureMax - thresholds.moistureMin) / 2);
+  const mDeviation = Math.abs(moisture - mTarget) / mRange;
+
+  if (mlCode === 2) {
+    // Suitable / Optimal: 88% - 98%
+    const penalty = Math.min(10, Math.round(mDeviation * 6));
+    healthScore = Math.max(88, 98 - penalty);
+  } else if (mlCode === 1) {
+    // Moderate stress: 50% - 68%
+    const penalty = Math.min(18, Math.round(mDeviation * 8));
+    healthScore = Math.max(50, 68 - penalty);
+  } else {
+    // High stress / Critical: 15% - 35%
+    const penalty = Math.min(16, Math.round(mDeviation * 6));
+    healthScore = Math.max(15, 31 - penalty);
+  }
+
   return {
     ...meta,
     condition: conditionName,
@@ -199,6 +220,7 @@ export function evaluatePlantModel(
       humidity: wHumidity,
       light: wLight,
     },
+    healthScore,
     confidenceDisplay: mlCode === 2 ? '98%' : mlCode === 1 ? '92%' : '96%',
   };
 }
