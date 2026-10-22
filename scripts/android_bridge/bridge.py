@@ -137,21 +137,46 @@ def send_telemetry_to_cloud(data):
         print(f"[CLOUD FAIL] Network request error: {e}")
         return False
 
-def run_serial_bridge():
-    """Connects to HC-05 via Serial RFCOMM."""
+def run_serial_bridge(target_port=None):
+    """Connects to HC-05 via Serial RFCOMM or Windows COM port."""
     try:
         import serial
+        import serial.tools.list_ports
     except ImportError:
         print("[!] PySerial not found. Install via: pip install pyserial")
         print("[!] Starting interactive terminal mode (paste lines from Bluetooth terminal):")
         run_stdin_bridge()
         return
 
-    print(f"[*] Opening Bluetooth RFCOMM port {BLUETOOTH_PORT} at {BAUD_RATE} baud...")
+    port = target_port or BLUETOOTH_PORT
+
+    # Auto-detection on Windows if default Linux path is still set
+    if (not target_port or target_port == "/dev/rfcomm0") and sys.platform.startswith("win"):
+        ports = list(serial.tools.list_ports.comports())
+        if ports:
+            print("[*] Available serial ports on this machine:")
+            bt_ports = []
+            for p in ports:
+                print(f"    - {p.device}: {p.description}")
+                if "bluetooth" in p.description.lower() or "bt" in p.description.lower() or "standard" in p.description.lower():
+                    bt_ports.append(p.device)
+            if bt_ports:
+                port = bt_ports[0]
+                print(f"[*] Auto-selected Bluetooth Serial Port: {port}")
+            else:
+                port = ports[0].device
+                print(f"[*] Selected Serial Port: {port}")
+        else:
+            print("[!] No COM ports detected. Please pair HC-05 in Windows Bluetooth settings or provide COM port.")
+            print("[!] Falling back to interactive terminal mode:")
+            run_stdin_bridge()
+            return
+
+    print(f"[*] Opening serial port {port} at {BAUD_RATE} baud...")
     while True:
         try:
-            with serial.Serial(BLUETOOTH_PORT, BAUD_RATE, timeout=2) as ser:
-                print(f"[✓] Connected to HC-05 on {BLUETOOTH_PORT}! Listening for STM32 telemetry...")
+            with serial.Serial(port, BAUD_RATE, timeout=2) as ser:
+                print(f"[✓] Connected to HC-05 on {port}! Listening for STM32 telemetry...")
                 while True:
                     raw_line = ser.readline().decode('utf-8', errors='ignore').strip()
                     if not raw_line:
@@ -164,7 +189,7 @@ def run_serial_bridge():
                     else:
                         print(f"[!] Ignored non-telemetry line: {raw_line[:40]}...")
         except Exception as e:
-            print(f"[!] Bluetooth connection lost: {e}. Retrying in 3 seconds...")
+            print(f"[!] Serial connection lost: {e}. Retrying in 3 seconds (or pass port as argument, e.g. COM4)...")
             time.sleep(3)
 
 def run_stdin_bridge():
@@ -213,11 +238,17 @@ def run_simulation():
 
 if __name__ == "__main__":
     print("==================================================")
-    print("   PlantCare AI — Android HC-05 Bridge Daemon     ")
+    print("   PlantCare AI — HC-05 to Vercel Bridge Daemon   ")
     print("==================================================")
     if "--simulate" in sys.argv:
         run_simulation()
     elif "--stdin" in sys.argv:
         run_stdin_bridge()
     else:
-        run_serial_bridge()
+        # Check if user passed a custom port, e.g. python bridge.py COM4
+        custom_port = None
+        for arg in sys.argv[1:]:
+            if not arg.startswith("--"):
+                custom_port = arg
+                break
+        run_serial_bridge(custom_port)

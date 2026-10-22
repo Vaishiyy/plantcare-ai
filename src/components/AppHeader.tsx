@@ -1,6 +1,6 @@
 import React from 'react';
 import { usePlant } from '../context/PlantContext';
-import { Bluetooth, Radio, Bell, AlertTriangle } from 'lucide-react';
+import { Bluetooth, Radio, Bell, AlertTriangle, Cloud } from 'lucide-react';
 
 export const AppHeader: React.FC = () => {
   const {
@@ -77,6 +77,13 @@ export const AppHeader: React.FC = () => {
                 <>
                   <Radio className="w-3.5 h-3.5 text-amber-600 animate-pulse" />
                   <span>Demo Mode</span>
+                </>
+              ) : connectionProtocol === 'cloud' ? (
+                <>
+                  <Cloud className={`w-3.5 h-3.5 ${connectionState === 'connected' ? 'text-emerald-600' : 'text-blue-600 animate-pulse'}`} />
+                  <span className="truncate max-w-[130px]">
+                    {connectionState === 'connected' ? 'STM32 Cloud Live' : 'Cloud Bridge...'}
+                  </span>
                 </>
               ) : connectionState === 'connected' ? (
                 <>

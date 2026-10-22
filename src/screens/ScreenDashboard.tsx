@@ -23,6 +23,8 @@ export const ScreenDashboard: React.FC = () => {
     currentReading,
     history,
     connectionState,
+    connectionProtocol,
+    statusMessage,
     isDemoMode,
     setActiveScreen,
     refreshReadings,
@@ -214,50 +216,90 @@ export const ScreenDashboard: React.FC = () => {
         />
       </div>
 
-      {/* Simulation Presets Strip */}
-      <div className="bg-amber-50/70 border border-amber-200/80 rounded-2xl p-3.5 space-y-2">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-1.5">
-            <Sparkles className="w-4 h-4 text-emerald-700" />
-            <span className="text-xs font-bold text-forest-900 uppercase tracking-wider">
-              Simulation Presets
+      {/* Bottom Mode Strip: Simulation Presets vs Live Hardware Link */}
+      {isDemoMode ? (
+        <div className="bg-amber-50/70 border border-amber-200/80 rounded-2xl p-3.5 space-y-2">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-1.5">
+              <Sparkles className="w-4 h-4 text-emerald-700" />
+              <span className="text-xs font-bold text-forest-900 uppercase tracking-wider">
+                Simulation Presets
+              </span>
+            </div>
+            <span className="text-[10px] text-forest-800 font-semibold bg-white/80 px-2 py-0.5 rounded-full border border-forest-300">
+              {activeProfile.name}
             </span>
           </div>
-          <span className="text-[10px] text-forest-800 font-semibold bg-white/80 px-2 py-0.5 rounded-full border border-forest-300">
-            {activeProfile.name}
-          </span>
-        </div>
-        <p className="text-[11px] text-stone-600 leading-snug">
-          Test how your plant responds to different environmental conditions:
-        </p>
+          <p className="text-[11px] text-stone-600 leading-snug">
+            Test how your plant responds to different environmental conditions:
+          </p>
 
-        <div className="grid grid-cols-4 gap-1.5 pt-1">
-          <button
-            onClick={() => setScenario('dataset_suitable')}
-            className="py-1.5 px-2 rounded-xl text-[11px] font-semibold bg-white border border-emerald-300 text-emerald-800 hover:bg-emerald-50 transition-all text-center shadow-soft"
-          >
-            Optimal
-          </button>
-          <button
-            onClick={() => setScenario('dataset_moderate')}
-            className="py-1.5 px-2 rounded-xl text-[11px] font-semibold bg-white border border-amber-300 text-amber-800 hover:bg-amber-50 transition-all text-center shadow-soft"
-          >
-            Needs Care
-          </button>
-          <button
-            onClick={() => setScenario('dataset_high_stress')}
-            className="py-1.5 px-2 rounded-xl text-[11px] font-semibold bg-white border border-rose-300 text-rose-800 hover:bg-rose-50 transition-all text-center shadow-soft"
-          >
-            High Stress
-          </button>
-          <button
-            onClick={() => setScenario('dataset_stream')}
-            className="py-1.5 px-2 rounded-xl text-[11px] font-semibold bg-forest-700 border border-forest-800 text-white hover:bg-forest-800 transition-all text-center shadow-soft"
-          >
-            Cycle Next ▶
-          </button>
+          <div className="grid grid-cols-4 gap-1.5 pt-1">
+            <button
+              onClick={() => setScenario('dataset_suitable')}
+              className="py-1.5 px-2 rounded-xl text-[11px] font-semibold bg-white border border-emerald-300 text-emerald-800 hover:bg-emerald-50 transition-all text-center shadow-soft"
+            >
+              Optimal
+            </button>
+            <button
+              onClick={() => setScenario('dataset_moderate')}
+              className="py-1.5 px-2 rounded-xl text-[11px] font-semibold bg-white border border-amber-300 text-amber-800 hover:bg-amber-50 transition-all text-center shadow-soft"
+            >
+              Needs Care
+            </button>
+            <button
+              onClick={() => setScenario('dataset_high_stress')}
+              className="py-1.5 px-2 rounded-xl text-[11px] font-semibold bg-white border border-rose-300 text-rose-800 hover:bg-rose-50 transition-all text-center shadow-soft"
+            >
+              High Stress
+            </button>
+            <button
+              onClick={() => setScenario('dataset_stream')}
+              className="py-1.5 px-2 rounded-xl text-[11px] font-semibold bg-forest-700 border border-forest-800 text-white hover:bg-forest-800 transition-all text-center shadow-soft"
+            >
+              Cycle Next ▶
+            </button>
+          </div>
         </div>
-      </div>
+      ) : (
+        <div className="bg-emerald-50/80 border border-emerald-200 rounded-2xl p-3.5 space-y-2">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-1.5">
+              <Bluetooth className="w-4 h-4 text-emerald-700" />
+              <span className="text-xs font-bold text-emerald-950 uppercase tracking-wider">
+                Hardware Mode Active ({connectionProtocol.toUpperCase()})
+              </span>
+            </div>
+            <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border ${
+              connectionState === 'connected'
+                ? 'bg-emerald-100 border-emerald-300 text-emerald-800'
+                : 'bg-amber-100 border-amber-300 text-amber-800'
+            }`}>
+              {connectionState === 'connected' ? 'Hardware Online' : 'Waiting for Data'}
+            </span>
+          </div>
+
+          <p className="text-[11px] text-emerald-800 leading-snug">
+            {connectionState === 'connected'
+              ? currentReading.isSynthetic
+                ? 'Cloud Bridge connected! Waiting for first telemetry packet from Android bridge...'
+                : 'Authentic sensor telemetry is streaming from your STM32F401 Black Pill.'
+              : statusMessage}
+          </p>
+
+          <div className="flex items-center justify-between pt-1 text-[11px]">
+            <button
+              onClick={() => setActiveScreen('settings')}
+              className="text-forest-700 font-semibold underline underline-offset-2 hover:text-forest-900"
+            >
+              Open Link & Ingestion Settings →
+            </button>
+            <span className="text-stone-500 text-[10px]">
+              Assumed Baseline: 25°C
+            </span>
+          </div>
+        </div>
+      )}
 
       <EditPlantModal isOpen={isEditOpen} onClose={() => setIsEditOpen(false)} />
     </div>

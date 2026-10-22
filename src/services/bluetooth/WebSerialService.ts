@@ -1,4 +1,4 @@
-import { SensorReading } from '../../types';
+import { PlantCondition, SensorReading } from '../../types';
 import { evaluatePlantModel } from '../ml/mlInference';
 
 export type SerialDataCallback = (reading: SensorReading, rawText: string) => void;
@@ -94,58 +94,138 @@ export class WebSerialManager {
 
   public parseAndDispatch(rawText: string, activePlantCode: 0 | 1 = 0): boolean {
     try {
-      const startIdx = rawText.indexOf('{');
-      const endIdx = rawText.lastIndexOf('}');
-      if (startIdx === -1 || endIdx === -1 || endIdx <= startIdx) {
-        return false;
-      }
+      let moisture: number | undefined;
+      let humidity: number | undefined;
+      let light: number | undefined;
+      let temperature: number = 25.0; // Hardware has no temp sensor; 25C baseline
+      let isTempAssumed: boolean = true;
+      let condition: string | undefined;
+      let mlClassCode: 0 | 1 | 2 | undefined;
+      let plantCode: 0 | 1 = activePlantCode;
 
-      const jsonSub = rawText.substring(startIdx, endIdx + 1);
-      const parsed = JSON.parse(jsonSub);
-
-      const moisture = typeof parsed.moisture === 'number' ? parsed.moisture : parsed.soil_humidity_pct;
-      const temperature = typeof parsed.temperature === 'number' ? parsed.temperature : parsed.temperature_c;
-      const humidity = typeof parsed.humidity === 'number' ? parsed.humidity : parsed.air_humidity_pct;
-      const light = typeof parsed.light === 'number' ? parsed.light : parsed.ldr_on_plant;
-
-      if (
-        typeof moisture !== 'number' ||
-        typeof temperature !== 'number' ||
-        typeof humidity !== 'number' ||
-        typeof light !== 'number'
-      ) {
-        return false;
-      }
-
-      const diag = evaluatePlantModel(
-        activePlantCode,
-        moisture,
-        temperature,
-        humidity,
-        light,
-        {
-          moistureMin: 10,
-          moistureMax: 35,
-          tempMin: 18,
-          tempMax: 32,
-          humidityMin: 30,
-          humidityMax: 60,
-          lightMin: 2500,
-          lightMax: 4095,
+      // 1. Try Key-Value format from STM32 main.c:
+      // PLANT=ALOE_VERA,ML_CLASS=2,ML_STATUS=SUITABLE,TEMP_C_ASSUMED=25,SOIL_PCT=45,HUM_RH_EST=55,HUM_ADC=3200,SOIL_RAW=2100,LDR_ADC=2400,POT_ADC=1500,SW1=0,SW2=0
+      if (rawText.includes('=')) {
+        const kv: Record<string, string> = {};
+        for (const part of rawText.replace(/[\r\n]/g, '').split(',')) {
+          if (part.includes('=')) {
+            const [k, v] = part.split('=', 2);
+            if (k && v !== undefined) {
+              kv[k.trim().toUpperCase()] = v.trim();
+            }
+          }
         }
-      );
+
+        if (kv['SOIL_PCT'] !== undefined) moisture = parseFloat(kv['SOIL_PCT']);
+        else if (kv['MOISTURE'] !== undefined) moisture = parseFloat(kv['MOISTURE']);
+
+        if (kv['HUM_RH_EST'] !== undefined) humidity = parseFloat(kv['HUM_RH_EST']);
+        else if (kv['HUMIDITY'] !== undefined) humidity = parseFloat(kv['HUMIDITY']);
+        else humidity = 50.0;
+
+        if (kv['LDR_ADC'] !== undefined) light = parseInt(kv['LDR_ADC'], 10);
+        else if (kv['LIGHT'] !== undefined) light = parseInt(kv['LIGHT'], 10);
+
+        if (kv['TEMP_C_ASSUMED'] !== undefined) {
+          temperature = parseFloat(kv['TEMP_C_ASSUMED']);
+          isTempAssumed = true;
+        } else if (kv['TEMP'] !== undefined || kv['TEMPERATURE'] !== undefined) {
+          const tVal = parseFloat(kv['TEMP'] || kv['TEMPERATURE']);
+          if (!isNaN(tVal)) {
+            temperature = tVal;
+            isTempAssumed = false;
+          }
+        }
+
+        if (kv['ML_STATUS'] !== undefined) {
+          condition = kv['ML_STATUS'].replace(/_/g, ' ').trim();
+        }
+
+        if (kv['ML_CLASS'] !== undefined) {
+          const cls = parseInt(kv['ML_CLASS'], 10);
+          if (cls === 0 || cls === 1 || cls === 2) mlClassCode = cls;
+        }
+
+        if (kv['PLANT'] !== undefined) {
+          plantCode = kv['PLANT'].toUpperCase().includes('POTHOS') ? 1 : 0;
+        }
+      } else {
+        // 2. Try JSON format: {"moisture": 45, "humidity": 55, "light": 2400}
+        const startIdx = rawText.indexOf('{');
+        const endIdx = rawText.lastIndexOf('}');
+        if (startIdx !== -1 && endIdx !== -1 && endIdx > startIdx) {
+          const jsonSub = rawText.substring(startIdx, endIdx + 1);
+          const parsed = JSON.parse(jsonSub);
+
+          moisture = typeof parsed.moisture === 'number' ? parsed.moisture : parsed.soil_humidity_pct;
+          humidity = typeof parsed.humidity === 'number' ? parsed.humidity : parsed.air_humidity_pct ?? 50.0;
+          light = typeof parsed.light === 'number' ? parsed.light : parsed.ldr_on_plant;
+
+          if (typeof parsed.temperature === 'number') {
+            temperature = parsed.temperature;
+            isTempAssumed = false;
+          } else if (typeof parsed.temp === 'number') {
+            temperature = parsed.temp;
+            isTempAssumed = false;
+          }
+
+          if (typeof parsed.condition === 'string') condition = parsed.condition;
+          if (typeof parsed.mlClassCode === 'number' && (parsed.mlClassCode === 0 || parsed.mlClassCode === 1 || parsed.mlClassCode === 2)) {
+            mlClassCode = parsed.mlClassCode;
+          }
+          if (typeof parsed.plantCode === 'number') {
+            plantCode = parsed.plantCode === 1 ? 1 : 0;
+          }
+        }
+      }
+
+      if (moisture === undefined || light === undefined || isNaN(moisture) || isNaN(light)) {
+        return false;
+      }
+
+      // If condition or mlClassCode not provided by hardware, evaluate via local ML model
+      let suitabilityClass: 'suitable' | 'moderate_stress' | 'high_stress' = 'suitable';
+      let plantCond: PlantCondition = 'Suitable';
+
+      if (mlClassCode === undefined || condition === undefined) {
+        const diag = evaluatePlantModel(
+          plantCode,
+          moisture,
+          temperature,
+          humidity ?? 50,
+          light,
+          {
+            moistureMin: 10,
+            moistureMax: 35,
+            tempMin: 18,
+            tempMax: 32,
+            humidityMin: 30,
+            humidityMax: 60,
+            lightMin: 2500,
+            lightMax: 4095,
+          }
+        );
+        plantCond = diag.condition;
+        suitabilityClass = diag.suitabilityClass;
+        mlClassCode = diag.mlClassCode;
+      } else {
+        suitabilityClass = mlClassCode === 2 ? 'suitable' : mlClassCode === 1 ? 'moderate_stress' : 'high_stress';
+        plantCond = mlClassCode === 2 ? 'Suitable' : mlClassCode === 1 ? 'Moderate Stress' : 'High Stress';
+      }
 
       const reading: SensorReading = {
         moisture: parseFloat(moisture.toFixed(1)),
         temperature: parseFloat(temperature.toFixed(1)),
-        humidity: parseFloat(humidity.toFixed(1)),
+        humidity: parseFloat((humidity ?? 50.0).toFixed(1)),
         light: Math.round(light),
-        condition: diag.condition,
-        suitabilityClass: diag.suitabilityClass,
-        mlClassCode: diag.mlClassCode,
+        condition: plantCond,
+        suitabilityClass,
+        mlClassCode,
         timestamp: Date.now(),
-        confidence: diag.mlClassCode === 2 ? 0.98 : diag.mlClassCode === 1 ? 0.93 : 0.96,
-        isSynthetic: false,
+        confidence: mlClassCode === 2 ? 0.98 : mlClassCode === 1 ? 0.93 : 0.96,
+        isSynthetic: false, // Authentic Hardware Measurement!
+        isTempAssumed,
+        plantCode,
       };
 
       this.onDataReceived?.(reading, rawText);

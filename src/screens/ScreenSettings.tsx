@@ -29,6 +29,7 @@ export const ScreenSettings: React.FC = () => {
     connectSerial,
     connectCloud,
     testCloudIngestion,
+    injectManualPacket,
     disconnectHardware,
     isDemoMode,
     setIsDemoMode,
@@ -43,6 +44,8 @@ export const ScreenSettings: React.FC = () => {
   const [isConnecting, setIsConnecting] = useState(false);
   const [isTestingPing, setIsTestingPing] = useState(false);
   const [pingResult, setPingResult] = useState<string | null>(null);
+  const [manualLineInput, setManualLineInput] = useState('');
+  const [manualIngestMsg, setManualIngestMsg] = useState<string | null>(null);
   const [copiedUrl, setCopiedUrl] = useState(false);
   const [authTokenInput, setAuthTokenInput] = useState('');
   const [baudRate, setBaudRate] = useState<number>(9600);
@@ -237,6 +240,44 @@ export const ScreenSettings: React.FC = () => {
                     <span>{isTestingPing ? 'Testing...' : 'Test Ingestion'}</span>
                   </button>
                 </div>
+              </div>
+
+              {/* Instant Telemetry Ingest Form: Paste raw line from Android Terminal */}
+              <div className="pt-2 border-t border-forest-100 space-y-1.5">
+                <div className="flex items-center justify-between text-[10px] text-stone-500">
+                  <span className="font-semibold text-forest-900">Paste line from Android Bluetooth Terminal:</span>
+                  {manualIngestMsg && (
+                    <span className="font-semibold text-emerald-700">{manualIngestMsg}</span>
+                  )}
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <input
+                    type="text"
+                    placeholder="PLANT=ALOE_VERA,SOIL_PCT=45,HUM_RH_EST=55,LDR_ADC=2400..."
+                    value={manualLineInput}
+                    onChange={(e) => setManualLineInput(e.target.value)}
+                    className="flex-1 px-2.5 py-1.5 rounded-xl border border-cream-300 bg-white text-xs font-mono"
+                  />
+                  <button
+                    onClick={() => {
+                      if (!manualLineInput.trim()) return;
+                      const ok = injectManualPacket(manualLineInput.trim());
+                      if (ok) {
+                        setManualIngestMsg('✓ Applied to Dashboard!');
+                        setManualLineInput('');
+                      } else {
+                        setManualIngestMsg('✕ Invalid format');
+                      }
+                      setTimeout(() => setManualIngestMsg(null), 3000);
+                    }}
+                    className="py-1.5 px-3 rounded-xl bg-forest-600 hover:bg-forest-700 text-white font-semibold text-xs transition-colors shrink-0 flex items-center gap-1"
+                  >
+                    <span>Ingest Line</span>
+                  </button>
+                </div>
+                <p className="text-[10px] text-stone-500 leading-tight">
+                  Supports both STM32 key-value string (<code>PLANT=...,SOIL_PCT=...</code>) and JSON.
+                </p>
               </div>
             </div>
 

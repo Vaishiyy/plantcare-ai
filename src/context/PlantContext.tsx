@@ -81,12 +81,26 @@ export const PlantProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const activeProfile = profiles.find((p) => p.id === activeProfileId) || profiles[0] || DEFAULT_PLANT_PROFILES[0];
 
   const [connectionState, setConnectionState] = useState<ConnectionState>('disconnected');
-  const [connectionProtocol, setConnectionProtocol] = useState<ConnectionProtocol>('demo');
+  const [connectionProtocol, setConnectionProtocolState] = useState<ConnectionProtocol>(() => {
+    return (localStorage.getItem('plant_connection_protocol') as ConnectionProtocol) || 'demo';
+  });
+
+  const setConnectionProtocol = useCallback((protocol: ConnectionProtocol) => {
+    setConnectionProtocolState(protocol);
+    localStorage.setItem('plant_connection_protocol', protocol);
+  }, []);
+
   const [connectedDeviceName, setConnectedDeviceName] = useState<string | null>(null);
   const [statusMessage, setStatusMessage] = useState<string>('Streaming from ML Training Dataset');
   const [serialLogs, setSerialLogs] = useState<SerialLogEntry[]>([]);
 
-  const [isDemoMode, setIsDemoModeState] = useState<boolean>(() => StorageService.getDemoMode());
+  const [isDemoMode, setIsDemoModeState] = useState<boolean>(() => {
+    const savedProtocol = localStorage.getItem('plant_connection_protocol');
+    if (savedProtocol === 'cloud' || savedProtocol === 'serial' || savedProtocol === 'ble') {
+      return false;
+    }
+    return StorageService.getDemoMode();
+  });
   const [activeScenario, setActiveScenario] = useState<DemoScenario>('dataset_stream');
 
   const [currentReading, setCurrentReading] = useState<SensorReading>(() => {
@@ -434,6 +448,14 @@ export const PlantProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     };
   }, [connectionProtocol, isDemoMode, refreshInterval, activeProfile.plantCode, profiles, handleIncomingReading]);
 
+  // On mount: if user previously connected to cloud bridge, resume polling automatically
+  useEffect(() => {
+    const savedProtocol = localStorage.getItem('plant_connection_protocol');
+    if (savedProtocol === 'cloud') {
+      connectCloud();
+    }
+  }, []);
+
   const disconnectHardware = () => {
     if (connectionProtocol === 'ble') webBluetooth.disconnect();
     else if (connectionProtocol === 'serial') webSerial.disconnect();
@@ -445,9 +467,27 @@ export const PlantProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     StorageService.saveDemoMode(true);
   };
 
-  const injectManualPacket = (rawJson: string): boolean => {
-    addLog('in', `[Manual Inject] ${rawJson}`);
-    return webBluetooth.parseAndDispatch(rawJson, activeProfile.plantCode);
+  const injectManualPacket = (rawText: string): boolean => {
+    addLog('in', `[Manual Ingest] ${rawText}`);
+    setIsDemoModeState(false);
+    StorageService.saveDemoMode(false);
+    
+    // Parse using universal parser (supports key-value & JSON)
+    const parsedOk = webSerial.parseAndDispatch(rawText, activeProfile.plantCode);
+    if (parsedOk) {
+      setConnectionState('connected');
+      setConnectedDeviceName('STM32 Hardware Telemetry');
+      setStatusMessage('Live reading ingested successfully');
+
+      // Forward to backend cloud API in background to persist
+      fetch('/api/telemetry', {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain' },
+        body: rawText,
+      }).catch((e) => console.warn('Cloud persist failed:', e));
+      return true;
+    }
+    return false;
   };
 
   const selectProfile = (id: string) => {
